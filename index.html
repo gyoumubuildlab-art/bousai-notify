@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>防災レベル発令通知(全ページマニュアル埋め込み版)</title>
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22%E9%98%B2%E7%81%BD%E3%83%AC%E3%83%99%E3%83%AB%E7%99%BA%E4%BB%A4%E9%80%9A%E7%9F%A5%22%2C%20%22short_name%22%3A%20%22%E9%98%B2%E7%81%BD%E9%80%9A%E7%9F%A5%22%2C%20%22start_url%22%3A%20%22./bousai_level_notify_html.html%22%2C%20%22scope%22%3A%20%22./%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%23f1f5f9%22%2C%20%22theme_color%22%3A%20%22%230f172a%22%2C%20%22lang%22%3A%20%22ja%22%2C%20%22icons%22%3A%20%5B%5D%7D">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    background: #f1f5f9; color: #1e293b; padding-bottom: 24px;
+  }
+  header {
+    background: #0f172a; color: white; padding: 16px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 17px; margin: 0; }
+  main { padding: 14px; max-width: 480px; margin: 0 auto; }
+ 
+  .card {
+    background: white; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .status-badge {
+    display: inline-block; padding: 6px 12px; border-radius: 999px;
+    font-weight: 600; font-size: 14px;
+  }
+  .status-badge.safe { background: #f1f5f9; color: #64748b; }
+  .status-badge.level4 { background: #fecaca; color: #991b1b; }
+  .status-badge.level5 { background: #7f1d1d; color: #fff; }
+ 
+  button {
+    font-family: inherit; border: none; border-radius: 8px; padding: 10px 14px;
+    font-size: 14px; cursor: pointer;
+  }
+  .btn-primary { background: #2563eb; color: white; width: 100%; margin-top: 8px; }
+  .btn-secondary { background: #e2e8f0; color: #1e293b; width: 100%; margin-top: 8px; }
+  .btn-small { background: #e2e8f0; color: #1e293b; padding: 6px 10px; font-size: 12px; }
+ 
+  #progress-log { font-size: 13px; line-height: 1.7; max-height: 260px; overflow-y: auto; }
+  #progress-log .region-line { padding: 2px 0; border-bottom: 1px dashed #e2e8f0; }
+  #progress-log .hit { color: #991b1b; font-weight: 600; }
+ 
+  .region-block { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; }
+  .region-header { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 4px; }
+  .office-row { display: flex; align-items: center; gap: 8px; padding: 3px 0 3px 22px; font-size: 13px; }
+  .muted { color: #64748b; font-size: 12px; }
+
+  /* マニュアルビューアー専用スタイル */
+  .manual-container {
+    position: relative;
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .manual-page {
+    display: none;
+    width: 100%;
+    height: auto;
+  }
+  .manual-page.active {
+    display: block;
+  }
+  .manual-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+ 
+  /* 警告オーバーレイ(背景は透明・操作を邪魔しないようクリックを素通りさせる) */
+  #flash-overlay {
+    position: fixed; inset: 0; z-index: 9999; display: none;
+    align-items: center; justify-content: center; background: transparent;
+    pointer-events: none;
+  }
+  #flash-blink-wrapper {
+    padding: 36px; border-radius: 22px; background: red; pointer-events: auto;
+  }
+  #flash-panel {
+    background: white; border-radius: 16px; padding: 32px; width: 90vw;
+    max-width: 410px; min-height: 253px; box-shadow: 0 6px 24px rgba(0,0,0,.3);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  #flash-panel .flash-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+  }
+  #flash-panel h2 { font-size: 21px; color: #991b1b; margin: 0; }
+  #flash-close {
+    background: #991b1b; color: white; width: 34px; height: 34px; border-radius: 9px;
+    font-size: 18px; font-weight: bold; line-height: 1; padding: 0;
+  }
+  #flash-body { font-size: 19px; font-weight: 700; line-height: 1.7; }
+  #flash-note { font-size: 13px; color: #64748b; margin-top: 12px; }
+ 
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+ 
+<header>
+  <h1>⚠️ 防災レベル発令通知(モバイル版)</h1>
+  <span id="header-status" class="status-badge safe">未確認</span>
+</header>
+<div style="max-width:480px; margin:4px auto 0; padding:0 14px; text-align:right;">
+  <span style="font-size:11px; color:#94a3b8; font-style:italic;">情報元：気象庁（JMA）が提供する防災情報API</span><br>
+  <span style="font-size:11px; color:#94a3b8; font-style:italic;">1次メッシュ番号：総務省統計局「市区町村別メッシュ・コード一覧」より</span>
+</div>
+ 
+<main>
+  <div class="card">
+    <div class="muted" style="margin-bottom:8px;">
+      監視エリアを選んで「監視を開始」を押してください。このタブを開いたままにしておく必要があります。
+    </div>
+    <button id="btn-start" class="btn-primary">監視を開始(このタブを開いたままにする)</button>
+    <button id="btn-check-now" class="btn-secondary">今すぐ確認(気象+地震+氾濫)</button>
+    <div style="margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9; font-size:13px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="checkbox" id="cb-keep-alive" checked>
+        <span><strong>バックグラウンド維持(無音再生・社用携帯30分制限対策)</strong></span>
+      </label>
+      <div id="keep-alive-status" class="muted" style="font-size:11px; margin-left:22px; margin-top:2px;">
+        画面消灯後も音楽再生扱いにすることで、社用携帯の30分制限・Dozeスリープによる停止を防ぎます(電池目安: 1時間約1.5〜2%)。
+      </div>
+    </div>
+    <div style="margin-top:8px; font-size:13px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="checkbox" id="cb-wake-lock">
+        <span><strong>画面スリープ防止(常時表示モード)</strong></span>
+      </label>
+      <div id="wake-lock-status" class="muted" style="font-size:11px; margin-left:22px; margin-top:2px;">
+        卓上設置時向け：画面の自動消灯を抑止します(充電器接続を推奨)。
+      </div>
+    </div>
+  </div>
+ 
+  <div class="card">
+    <strong>現在の該当エリア(気象・レベル別)</strong>
+    <div id="threshold-display-weather" style="font-size:12px; color:#334155; font-weight:600; margin-top:2px;"></div>
+    <div class="muted" style="margin-top:2px;">エリア名をタップすると1次メッシュ番号が表示されます</div>
+    <div id="affected-summary" class="muted" style="margin-top:6px;">まだ確認していません。</div>
+  </div>
+
+  <div class="card">
+    <strong>現在の該当エリア(地震)</strong>
+    <div class="muted" style="margin-top:2px;">エリア名をタップすると1次メッシュ番号が表示されます</div>
+    <div id="earthquake-summary" class="muted" style="margin-top:6px;">まだ確認していません。</div>
+  </div>
+
+  <div class="card">
+    <strong>現在の該当エリア(氾濫)</strong>
+    <div id="threshold-display-flood" style="font-size:12px; color:#334155; font-weight:600; margin-top:2px;"></div>
+    <div class="muted" style="margin-top:2px;">エリア名をタップすると1次メッシュ番号が表示されます</div>
+    <div id="flood-summary" class="muted" style="margin-top:6px;">まだ確認していません。</div>
+  </div>
+ 
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong>監視エリア設定</strong>
+      <button id="btn-toggle-settings" class="btn-small">開く/閉じる</button>
+    </div>
+    <div class="muted" style="margin-top:6px;">
+      この設定を一度も開かなくても、初期状態では監視エリア=全国、通知レベル=レベル5以上として動作します。
+    </div>
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-top:8px; font-size:12px; color:#334155; line-height:1.7;">
+      <strong>地震情報の通知基準(固定)</strong><br>
+      震度5強以上で通知: 東京都・神奈川県・千葉県・埼玉県<br>
+      震度6弱以上で通知: 上記4都県以外のすべての都道府県
+    </div>
+    <div id="settings-body" class="hidden" style="margin-top:10px;">
+      <div style="font-weight:700; margin-bottom:4px;">確認する間隔</div>
+      <div class="muted" style="margin-bottom:6px;">この間隔で自動的にチェックします(短いほど気づくのは早くなりますが、電池の消費が増えます)</div>
+      <div id="interval-row" style="margin-bottom:12px;">
+        <label style="margin-right:10px;"><input type="radio" name="interval" value="5"> 5分</label>
+        <label style="margin-right:10px;"><input type="radio" name="interval" value="10"> 10分</label>
+        <label style="margin-right:10px;"><input type="radio" name="interval" value="15" checked> 15分</label>
+        <label style="margin-right:10px;"><input type="radio" name="interval" value="30"> 30分</label>
+        <label><input type="radio" name="interval" value="60"> 1時間</label>
+      </div>
+      <hr style="border:none; border-top:1px solid #e2e8f0; margin:10px 0;">
+      <div style="font-weight:700; margin-bottom:4px;">通知する警戒レベル(気象)</div>
+      <div id="threshold-row" style="margin-bottom:12px;">
+        <label style="margin-right:10px;"><input type="radio" name="threshold" value="1"> レベル1以上</label>
+        <label style="margin-right:10px;"><input type="radio" name="threshold" value="2"> レベル2以上</label>
+        <label style="margin-right:10px;"><input type="radio" name="threshold" value="3"> レベル3以上</label>
+        <label style="margin-right:10px;"><input type="radio" name="threshold" value="4"> レベル4以上</label>
+        <label><input type="radio" name="threshold" value="5" checked> レベル5以上</label>
+      </div>
+      <hr style="border:none; border-top:1px solid #e2e8f0; margin:10px 0;">
+      <label style="display:block; margin-bottom:6px;">
+        <input type="radio" name="mode" value="all" id="mode-all" checked> 全国(すべての警報を対象)
+      </label>
+      <label style="display:block; margin-bottom:10px;">
+        <input type="radio" name="mode" value="custom" id="mode-custom"> 地方・都道府県を個別に選択
+      </label>
+      <div class="muted" style="margin-bottom:8px;">読み込み中...</div>
+      <div id="region-list"></div>
+      <button id="btn-save-settings" class="btn-primary">保存</button>
+    </div>
+  </div>
+ 
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong>確認ログ(北の地方から順)</strong>
+      <button id="btn-toggle-log" class="btn-small">開く/閉じる</button>
+    </div>
+    <div id="log-body" style="margin-top:8px;">
+      <div id="progress-log">まだ確認していません。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong>注意事項</strong>
+      <button id="btn-toggle-notes" class="btn-small">開く/閉じる</button>
+    </div>
+    <div id="notes-body" class="hidden muted" style="margin-top:8px;">
+      注意: このツールはブラウザのタブを開いている間だけ動作します。スマホのスリープや
+      バックグラウンド制限により、通知が遅れたり届かないことがあります。ホーム画面に
+      追加しておくと開きやすくなりますが、常時監視の確実性はPC版に劣ります。<br><br>
+      警戒レベルの判定は気象庁の警報種別コードからの近似です(2026年5月29日の
+      気象庁「防災気象情報の体系整理」に対応済み。対象は大雨・土砂災害・高潮の
+      3種類で、河川氾濫は別データのため未対応)。重要な判断の際は必ず
+      気象庁・国交省の公式発表もご確認ください。CORS制限でデータ取得に失敗する場合、
+      端末やブラウザによっては動作しないことがあります。
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>「災害時通行実績システム災害時情報提供サービス」の提供開始について</strong>
+    <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px 12px; margin-top:6px; margin-bottom:10px; font-size:12px; color:#334155; line-height:1.7;">
+      📌 マニュアル本体の参照先(このページには表紙のみ表示しています)：<br>
+      <code>\\Gyoumu-NAS\disk1\業務部本科共有\♪災害ＷＥＢ\■通行実績情報\230420_整流化_ITS_Japan\■災害時通行実績システム操作説明書\260810_災害時通行実績システム_業務部簡易マニュアル_新人向け改訂版</code> を参照
+    </div>
+
+    <!-- 表紙のみ表示(これがマニュアルであることが分かればよいので、ページ送りは行わない) -->
+    <div class="manual-container">
+      <img
+        src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='100%' height='100%' fill='%23ffffff'/><rect x='0' y='0' width='600' height='30' fill='%23558b2f'/><rect x='45' y='120' width='510' height='85' fill='%23658575'/><rect x='160' y='120' width='395' height='85' fill='%23689f38'/><text x='300' y='152' font-family='sans-serif' font-size='20' font-weight='bold' fill='%23ffffff' text-anchor='middle'>災害時通行実績システム</text><text x='300' y='177' font-family='sans-serif' font-size='16' fill='%23ffffff' text-anchor='middle'>災害時情報提供サービス（災害Web）</text><text x='300' y='198' font-family='sans-serif' font-size='15' fill='%23ffffff' text-anchor='middle'>提供開始手順（運用統一版）</text><text x='300' y='245' font-family='sans-serif' font-size='15' fill='%23000000' text-anchor='middle'>令和8年8月10日 作成：業務部</text><text x='300' y='275' font-family='sans-serif' font-size='16' fill='%23000000' text-anchor='middle'>第1.0版</text><rect x='0' y='375' width='600' height='25' fill='%23689f38'/></svg>"
+        alt="マニュアル表紙"
+        class="manual-page active"
+      >
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>バックグラウンド同期(実験的機能)</strong>
+    <div class="muted" style="margin-top:4px;">
+      タブを閉じていても、条件が揃えば裏で自動チェックを試みます。<br>
+      <b>保証はありません。</b>Android版Chrome系ブラウザのみの対応で、iPhoneのSafariには
+      この仕組み自体がありません。対応環境でも実行間隔(左上の「確認する間隔」設定)は
+      目安であり、ブラウザ・OSの判断で遅れることがあります。
+    </div>
+    <div id="bgsync-status" class="muted" style="margin-top:8px; font-weight:600;">確認中...</div>
+    <button id="btn-test-bgsync" class="btn-secondary">バックグラウンド同期を今すぐ試す</button>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong>📱 Androidスリープ対策・通知設定ガイド</strong>
+      <button id="btn-toggle-android-guide" class="btn-small">開く/閉じる</button>
+    </div>
+    <div class="muted" style="margin-top:6px;">
+      Androidがスリープ（画面消灯）に入ると、OSの省電力機能（Dozeモード）により通信や裏の動作が止められることがあります。通知を確実に受け取るための設定手順です。
+    </div>
+    <div id="android-guide-body" class="hidden" style="margin-top:10px; font-size:12px; line-height:1.7; color:#334155;">
+      <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px; margin-bottom:8px;">
+        <strong style="color:#991b1b;">1. バッテリー最適化を「制限なし」にする (可能な場合)</strong><br>
+        Android端末の「設定」→「アプリ」→「Chrome」(またはインストールした本アプリ)→「バッテリー」→「<b>制限なし(最適化しない)</b>」を選択してください。<br>
+        <span style="color:#991b1b; font-weight:600;">※社用携帯のポリシー等で最長30分しか設定できない場合でも、本アプリの「バックグラウンド維持(無音再生)」をONにしておくことで、Android OSに音楽再生中と認識させ、30分を超えてスリープ中も継続監視できます。</span>
+      </div>
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px; margin-bottom:8px;">
+        <strong style="color:#166534;">2. ロック画面通知・ポップアップの許可</strong><br>
+        「設定」→「アプリ」→「Chrome」→「通知」で通知を「許可」にし、「ポップアップ表示(バナー)」「バイブレーション」「音」を有効にしてください。またロック画面の設定で「すべての通知内容を表示する」にしてください。
+      </div>
+      <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px; margin-bottom:8px;">
+        <strong style="color:#1e40af;">3. ホーム画面に追加してアプリ化(PWA)する</strong><br>
+        Chromeのメニュー(右上「︙」)から「<b>ホーム画面に追加</b>」または「<b>アプリをインストール</b>」を行ってください。独立アプリ化することで、ブラウザのバックグラウンド実行スコアが上がり、OSから停止されにくくなります。
+      </div>
+      <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px;">
+        <strong style="color:#6b21a8;">4. 卓上待機時は「画面スリープ防止」をONのままにする</strong><br>
+        上部の「画面スリープ防止」をONにしておけば、画面が自動消灯せずDozeスリープに入らないため、設定した間隔で確実にアラート音・バイブレーション・点滅が動作します。
+      </div>
+    </div>
+  </div>
+</main>
+ 
+<div id="flash-overlay">
+  <div id="flash-blink-wrapper">
+    <div id="flash-panel">
+      <div class="flash-header">
+        <h2 id="flash-title">警戒レベル5以上 発表</h2>
+        <button id="flash-close">×</button>
+      </div>
+      <div id="flash-body"></div>
+      <div id="flash-note">気象庁の公式発表を確認してください。確認後は × で閉じてください。</div>
+    </div>
+  </div>
+</div>
+ 
+<script>
+const ALERT_ICON = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,10 90,85 10,85' fill='%23dc2626'/><text x='50' y='75' font-size='50' font-weight='bold' fill='%23ffffff' text-anchor='middle'>!</text></svg>";
+
+async function sendAppNotification(title, body, tag) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const options = {
+    body,
+    tag,
+    icon: ALERT_ICON,
+    badge: ALERT_ICON,
+    // Androidでの強力なバイブレーション(スリープ時でも気付きやすくする)
+    vibrate: [500, 200, 500, 200, 500, 200, 1000],
+    requireInteraction: true, // ユーザーが操作するまで通知を維持
+    renotify: true,           // 同一カテゴリ更新時も再度振動・音を鳴らす
+    data: { url: "./bousai_level_notify_html.html" }
+  };
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, options);
+      return;
+    }
+  } catch (e) {}
+  try {
+    new Notification(title, options);
+  } catch (e) {}
+}
+
+// ------------------------------------------------------------
+// バックグラウンド維持用 無音オーディオ(社用携帯30分制限・スリープ対策)
+// ------------------------------------------------------------
+const SILENT_WAV_URI = "data:audio/wav;base64,UklGRgwEAABXQVZFZm10IBAAAAABAAEA6AMAAOgDAAABAAgAZGF0YegDAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=";
+
+let silentAudioEl = null;
+
+function getSilentAudioEl() {
+  if (!silentAudioEl) {
+    silentAudioEl = document.createElement("audio");
+    silentAudioEl.loop = true;
+    silentAudioEl.src = SILENT_WAV_URI;
+    silentAudioEl.volume = 0.01;
+    document.body.appendChild(silentAudioEl);
+  }
+  return silentAudioEl;
+}
+
+async function startKeepAliveAudio() {
+  const cb = el("cb-keep-alive");
+  if (!cb || !cb.checked) return;
+  try {
+    const audio = getSilentAudioEl();
+    await audio.play();
+    setupMediaSession();
+    updateKeepAliveUI(true);
+  } catch (e) {
+    console.warn("バックグラウンド維持オーディオの再生失敗:", e);
+    updateKeepAliveUI(false, e.message);
+  }
+}
+
+function stopKeepAliveAudio() {
+  if (silentAudioEl) {
+    silentAudioEl.pause();
+  }
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.playbackState = "none";
+  }
+  updateKeepAliveUI(false);
+}
+
+function setupMediaSession() {
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: "防災通知 (バックグラウンド常時監視中)",
+      artist: "気象・地震・氾濫 自動監視",
+      album: "社用携帯スリープ対策モード"
+    });
+    navigator.mediaSession.playbackState = "playing";
+    navigator.mediaSession.setActionHandler("pause", () => {
+      stopKeepAliveAudio();
+      const cb = el("cb-keep-alive");
+      if (cb) cb.checked = false;
+    });
+    navigator.mediaSession.setActionHandler("play", () => {
+      const cb = el("cb-keep-alive");
+      if (cb) cb.checked = true;
+      startKeepAliveAudio();
+    });
+  }
+}
+
+function updateKeepAliveUI(isPlaying, errMsg) {
+  const status = el("keep-alive-status");
+  if (!status) return;
+  if (isPlaying) {
+    status.innerHTML = "<span style='color:#16a34a; font-weight:bold;'>● バックグラウンド維持中（画面消灯後も30分制限を受けず監視します）</span>";
+  } else if (errMsg) {
+    status.innerHTML = `<span style='color:#64748b;'>準備完了(「監視を開始」を押すと有効化されます)</span>`;
+  } else {
+    status.textContent = "画面消灯後も音楽再生扱いにすることで、社用携帯の30分制限・Dozeスリープによる停止を防ぎます(電池目安: 1時間約1.5〜2%)。";
+  }
+}
+
+const AREA_JSON_URL = "https://www.jma.go.jp/bosai/common/const/area.json";
+const OFFICE_WARNING_URL = code => `https://www.jma.go.jp/bosai/warning/data/r8/${code}.json`;
+let POLL_INTERVAL_MS = 15 * 60 * 1000; // 初期値15分(設定で変更可能)
+const REGION_ORDER_KEYWORDS = ["北海道","東北","関東","東海","北陸","近畿","中国","四国","九州","沖縄"];
+ 
+const CODE_TO_LEVEL = {
+  "10": 2, "29": 2, "19": 2,
+  "03": 3, "09": 3, "08": 3,
+  "43": 4, "49": 4, "48": 4,
+  "33": 5, "39": 5, "38": 5,
+};
+
+// ------------------------------------------------------------
+// 地震情報の設定
+// ------------------------------------------------------------
+const QUAKE_LIST_URL = "https://www.jma.go.jp/bosai/quake/data/list.json";
+const QUAKE_DETAIL_URL = filename => `https://www.jma.go.jp/bosai/quake/data/${filename}`;
+// 都道府県コード(JIS): 11=埼玉県, 12=千葉県, 13=東京都, 14=神奈川県
+const QUAKE_SPECIAL_PREF_CODES = new Set(["11", "12", "13", "14"]);
+const QUAKE_SPECIAL_THRESHOLD = "5+"; // 東京・神奈川・千葉・埼玉 → 震度5強以上
+const QUAKE_NORMAL_THRESHOLD = "6-";  // それ以外の都道府県 → 震度6弱以上
+// 気象庁の震度表記を大小比較できる数値に変換するための順序
+const INTENSITY_ORDER = ["1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"];
+function intensityValue(intStr) {
+  const idx = INTENSITY_ORDER.indexOf(intStr);
+  return idx === -1 ? -1 : idx;
+}
+let lastQuakeFingerprint = null;
+let quakeListCache = null;
+
+// ------------------------------------------------------------
+// 氾濫(指定河川洪水予報)の設定
+// ------------------------------------------------------------
+// 出典: 気象庁 指定河川洪水予報(発表状況) https://www.jma.go.jp/bosai/flood/data/r8/flood_xml.json
+// 重要な注意: 大雨・土砂災害・高潮の警報とは別の「指定河川洪水予報」という仕組みで、
+// 河川ごと・区間ごとに発表される。地域コードの先頭2桁を都道府県コードとみなして
+// 都道府県単位に丸めている。レベルは発表文のタイトル文字列から抽出する近似実装で、
+// 気象庁の公式コード対応表による確認はできていない。重要な判断の際は必ず
+// 気象庁の公式発表(https://www.jma.go.jp/bosai/flood/)もご確認ください。
+const FLOOD_XML_URL = "https://www.jma.go.jp/bosai/flood/data/r8/flood_xml.json";
+const JIS_PREF_NAMES = {
+  "01":"北海道","02":"青森県","03":"岩手県","04":"宮城県","05":"秋田県",
+  "06":"山形県","07":"福島県","08":"茨城県","09":"栃木県","10":"群馬県",
+  "11":"埼玉県","12":"千葉県","13":"東京都","14":"神奈川県","15":"新潟県",
+  "16":"富山県","17":"石川県","18":"福井県","19":"山梨県","20":"長野県",
+  "21":"岐阜県","22":"静岡県","23":"愛知県","24":"三重県","25":"滋賀県",
+  "26":"京都府","27":"大阪府","28":"兵庫県","29":"奈良県","30":"和歌山県",
+  "31":"鳥取県","32":"島根県","33":"岡山県","34":"広島県","35":"山口県",
+  "36":"徳島県","37":"香川県","38":"愛媛県","39":"高知県","40":"福岡県",
+  "41":"佐賀県","42":"長崎県","43":"熊本県","44":"大分県","45":"宮崎県",
+  "46":"鹿児島県","47":"沖縄県",
+};
+let lastFloodFingerprint = null;
+
+// ------------------------------------------------------------
+// 1次メッシュコードの照合(総務省統計局「市区町村別メッシュ・コード一覧」)
+// ------------------------------------------------------------
+// 出典データ: 総務省統計局 市区町村別メッシュ・コード一覧
+//            (https://www.stat.go.jp/data/mesh/m_itiran.html)
+// 総務省のサーバーはブラウザからの直接アクセス(CORS)を許可していないため、
+// 同じ内容を都道府県コードごとに集計した静的データとしてこのファイル自体に
+// 埋め込んでいます。ネット接続やCORSの制限を受けず、常に同じ結果が得られます。
+// (データそのものは更新されないため、市区町村合併等があった場合はこの埋め込み
+// データも更新が必要になります)
+const MESH_DATA_EMBEDDED = {"01":{"6441":["三笠市","伊達市","北広島市","千歳市","夕張市","小樽市","岩見沢市","後志総合振興局京極町","後志総合振興局喜茂別町","後志総合振興局留寿都村","後志総合振興局赤井川村","恵庭市","札幌市中央区","札幌市北区","札幌市南区","札幌市厚別区","札幌市手稲区","札幌市東区","札幌市清田区","札幌市白石区","札幌市西区","札幌市豊平区","江別市","石狩市","石狩振興局当別町","石狩振興局新篠津村","空知総合振興局南幌町","空知総合振興局月形町","空知総合振興局栗山町","空知総合振興局由仁町","空知総合振興局長沼町","美唄市","胆振総合振興局むかわ町","胆振総合振興局厚真町","胆振総合振興局安平町","胆振総合振興局白老町","苫小牧市"],"6440":["伊達市","小樽市","後志総合振興局ニセコ町","後志総合振興局京極町","後志総合振興局仁木町","後志総合振興局余市町","後志総合振興局倶知安町","後志総合振興局共和町","後志総合振興局古平町","後志総合振興局喜茂別町","後志総合振興局寿都町","後志総合振興局岩内町","後志総合振興局島牧村","後志総合振興局泊村","後志総合振興局留寿都村","後志総合振興局真狩村","後志総合振興局神恵内村","後志総合振興局積丹町","後志総合振興局蘭越町","後志総合振興局赤井川村","後志総合振興局黒松内町","札幌市南区","胆振総合振興局洞爺湖町","胆振総合振興局豊浦町"],"6240":["函館市","北斗市","檜山振興局上ノ国町","檜山振興局乙部町","檜山振興局厚沢部町","檜山振興局江差町","渡島総合振興局七飯町","渡島総合振興局木古内町","渡島総合振興局松前町","渡島総合振興局森町","渡島総合振興局知内町","渡島総合振興局福島町","渡島総合振興局鹿部町"],"6241":["函館市"],"6340":["伊達市","函館市","室蘭市","後志総合振興局島牧村","後志総合振興局真狩村","後志総合振興局蘭越町","後志総合振興局黒松内町","檜山振興局せたな町","檜山振興局乙部町","檜山振興局今金町","檜山振興局厚沢部町","渡島総合振興局七飯町","渡島総合振興局八雲町","渡島総合振興局森町","渡島総合振興局長万部町","渡島総合振興局鹿部町","登別市","胆振総合振興局壮瞥町","胆振総合振興局洞爺湖町","胆振総合振興局豊浦町"],"6542":["オホーツク総合振興局滝上町","三笠市","上川総合振興局上富良野町","上川総合振興局上川町","上川総合振興局中富良野町","上川総合振興局南富良野町","上川総合振興局和寒町","上川総合振興局幌加内町","上川総合振興局当麻町","上川総合振興局愛別町","上川総合振興局東川町","上川総合振興局東神楽町","上川総合振興局比布町","上川総合振興局美瑛町","上川総合振興局鷹栖町","十勝総合振興局新得町","士別市","富良野市","旭川市","歌志内市","深川市","滝川市","留萌振興局小平町","空知総合振興局上砂川町","空知総合振興局奈井江町","空知総合振興局沼田町","空知総合振興局秩父別町","美唄市","芦別市","赤平市"],"6341":["伊達市","室蘭市","日高振興局日高町","登別市","胆振総合振興局むかわ町","胆振総合振興局厚真町","胆振総合振興局壮瞥町","胆振総合振興局白老町","苫小牧市"],"6443":["十勝総合振興局上士幌町","十勝総合振興局中札内村","十勝総合振興局士幌町","十勝総合振興局大樹町","十勝総合振興局幕別町","十勝総合振興局新得町","十勝総合振興局更別村","十勝総合振興局本別町","十勝総合振興局池田町","十勝総合振興局浦幌町","十勝総合振興局清水町","十勝総合振興局芽室町","十勝総合振興局豊頃町","十勝総合振興局足寄町","十勝総合振興局音更町","十勝総合振興局鹿追町","帯広市","釧路市","釧路総合振興局白糠町"],"6444":["根室振興局別海町","釧路市","釧路総合振興局厚岸町","釧路総合振興局標茶町","釧路総合振興局浜中町","釧路総合振興局白糠町","釧路総合振興局釧路町","釧路総合振興局鶴居村"],"6543":["オホーツク総合振興局佐呂間町","オホーツク総合振興局津別町","オホーツク総合振興局湧別町","オホーツク総合振興局滝上町","オホーツク総合振興局置戸町","オホーツク総合振興局美幌町","オホーツク総合振興局訓子府町","オホーツク総合振興局遠軽町","上川総合振興局上川町","北見市","十勝総合振興局上士幌町","十勝総合振興局新得町","十勝総合振興局足寄町","十勝総合振興局陸別町","十勝総合振興局鹿追町","紋別市","釧路市","釧路総合振興局白糠町"],"6544":["オホーツク総合振興局大空町","オホーツク総合振興局小清水町","オホーツク総合振興局斜里町","オホーツク総合振興局津別町","オホーツク総合振興局清里町","オホーツク総合振興局美幌町","北見市","十勝総合振興局足寄町","根室振興局中標津町","根室振興局別海町","根室振興局標津町","根室振興局羅臼町","網走市","釧路市","釧路総合振興局厚岸町","釧路総合振興局弟子屈町","釧路総合振興局標茶町","釧路総合振興局白糠町","釧路総合振興局鶴居村"],"6342":["十勝総合振興局中札内村","十勝総合振興局大樹町","十勝総合振興局広尾町","帯広市","日高振興局平取町","日高振興局新ひだか町","日高振興局新冠町","日高振興局日高町","日高振興局様似町","日高振興局浦河町","胆振総合振興局むかわ町","胆振総合振興局厚真町"],"6343":["十勝総合振興局中札内村","十勝総合振興局大樹町","十勝総合振興局幕別町","十勝総合振興局広尾町","十勝総合振興局更別村","十勝総合振興局豊頃町","帯広市","日高振興局えりも町","日高振興局様似町","日高振興局浦河町"],"6442":["三笠市","上川総合振興局南富良野町","上川総合振興局占冠村","十勝総合振興局中札内村","十勝総合振興局新得町","十勝総合振興局清水町","十勝総合振興局芽室町","十勝総合振興局鹿追町","夕張市","富良野市","岩見沢市","帯広市","日高振興局平取町","日高振興局新ひだか町","日高振興局新冠町","日高振興局日高町","空知総合振興局由仁町","美唄市","胆振総合振興局むかわ町","胆振総合振興局厚真町","芦別市"],"6643":["オホーツク総合振興局佐呂間町","オホーツク総合振興局湧別町","オホーツク総合振興局滝上町","オホーツク総合振興局興部町","オホーツク総合振興局西興部村","オホーツク総合振興局遠軽町","オホーツク総合振興局雄武町","北見市","紋別市"],"6644":["オホーツク総合振興局斜里町","北見市","網走市"],"6541":["岩見沢市","歌志内市","深川市","滝川市","留萌市","留萌振興局増毛町","留萌振興局小平町","石狩市","石狩振興局当別町","砂川市","空知総合振興局上砂川町","空知総合振興局北竜町","空知総合振興局奈井江町","空知総合振興局妹背牛町","空知総合振興局新十津川町","空知総合振興局月形町","空知総合振興局沼田町","空知総合振興局浦臼町","空知総合振興局秩父別町","空知総合振興局雨竜町","美唄市","赤平市"],"6741":["上川総合振興局中川町","宗谷総合振興局利尻富士町","宗谷総合振興局利尻町","宗谷総合振興局幌延町","宗谷総合振興局猿払村","宗谷総合振興局礼文町","宗谷総合振興局豊富町","留萌振興局天塩町","留萌振興局遠別町","稚内市"],"6742":["オホーツク総合振興局雄武町","上川総合振興局中川町","上川総合振興局美深町","上川総合振興局音威子府村","宗谷総合振興局中頓別町","宗谷総合振興局幌延町","宗谷総合振興局枝幸町","宗谷総合振興局浜頓別町","宗谷総合振興局猿払村","宗谷総合振興局豊富町","留萌振興局天塩町","留萌振興局遠別町","稚内市"],"6841":["宗谷総合振興局猿払村","宗谷総合振興局礼文町","稚内市"],"6842":["宗谷総合振興局猿払村","稚内市"],"6642":["オホーツク総合振興局滝上町","オホーツク総合振興局興部町","オホーツク総合振興局西興部村","オホーツク総合振興局雄武町","上川総合振興局下川町","上川総合振興局中川町","上川総合振興局剣淵町","上川総合振興局和寒町","上川総合振興局幌加内町","上川総合振興局愛別町","上川総合振興局美深町","上川総合振興局音威子府村","名寄市","士別市","宗谷総合振興局枝幸町","深川市","留萌振興局小平町","留萌振興局羽幌町","留萌振興局苫前町","留萌振興局遠別町","空知総合振興局沼田町"],"6445":["根室市","根室振興局別海町","釧路総合振興局厚岸町","釧路総合振興局浜中町"],"6545":["オホーツク総合振興局斜里町","根室市","根室振興局中標津町","根室振興局別海町","根室振興局標津町","根室振興局泊村","根室振興局羅臼町"],"6546":["根室市","根室振興局色丹村"],"6239":["檜山振興局上ノ国町","渡島総合振興局松前町"],"6339":["後志総合振興局島牧村","檜山振興局せたな町","檜山振興局今金町","檜山振興局奥尻町","渡島総合振興局八雲町"],"6439":["後志総合振興局島牧村"],"6540":["後志総合振興局積丹町"],"6641":["上川総合振興局中川町","留萌振興局初山別村","留萌振興局小平町","留萌振興局羽幌町","留萌振興局苫前町","留萌振興局遠別町","空知総合振興局沼田町"],"6740":["宗谷総合振興局礼文町"],"6840":["宗谷総合振興局礼文町"],"6645":["オホーツク総合振興局斜里町","根室振興局泊村","根室振興局留夜別村","根室振興局羅臼町"],"6243":["日高振興局えりも町"],"6646":["根室振興局留別村","根室振興局留夜別村"],"6647":["根室振興局留別村"],"6747":["根室振興局留別村","根室振興局紗那村"],"6748":["根室振興局留別村","根室振興局紗那村","根室振興局蘂取村"],"6847":["根室振興局紗那村"],"6848":["根室振興局紗那村","根室振興局蘂取村"]},"02":{"6040":["三戸郡三戸町","三戸郡新郷村","三戸郡田子町","中津軽郡西目屋村","北津軽郡板柳町","十和田市","南津軽郡大鰐町","南津軽郡田舎館村","南津軽郡藤崎町","平川市","弘前市","西津軽郡深浦町","西津軽郡鰺ヶ沢町","青森市","黒石市"],"6140":["つがる市","むつ市","上北郡七戸町","下北郡佐井村","五所川原市","北津軽郡中泊町","北津軽郡板柳町","北津軽郡鶴田町","十和田市","南津軽郡田舎館村","南津軽郡藤崎町","弘前市","東津軽郡今別町","東津軽郡外ヶ浜町","東津軽郡平内町","東津軽郡蓬田村","西津軽郡深浦町","西津軽郡鰺ヶ沢町","青森市","黒石市"],"6041":["三戸郡三戸町","三戸郡五戸町","三戸郡南部町","三戸郡新郷村","三戸郡田子町","三戸郡階上町","三沢市","上北郡おいらせ町","上北郡七戸町","上北郡六戸町","上北郡東北町","八戸市","十和田市"],"6141":["むつ市","三沢市","上北郡おいらせ町","上北郡七戸町","上北郡六ヶ所村","上北郡六戸町","上北郡東北町","上北郡横浜町","上北郡野辺地町","下北郡東通村","十和田市","東津軽郡平内町"],"6240":["むつ市","下北郡佐井村","下北郡大間町","下北郡風間浦村"],"6241":["むつ市","下北郡東通村","下北郡風間浦村"],"6039":["西津軽郡深浦町"],"6139":["西津軽郡深浦町"]},"03":{"5940":["八幡平市","北上市","和賀郡西和賀町","岩手郡雫石町","盛岡市","紫波郡紫波町","花巻市"],"5941":["上閉伊郡大槌町","下閉伊郡山田町","下閉伊郡岩泉町","下閉伊郡普代村","下閉伊郡田野畑村","八幡平市","北上市","宮古市","岩手郡岩手町","岩手郡葛巻町","岩手郡雫石町","滝沢市","盛岡市","紫波郡矢巾町","紫波郡紫波町","花巻市","遠野市","釜石市"],"5942":["下閉伊郡山田町","宮古市"],"5841":["一関市","北上市","大船渡市","奥州市","気仙郡住田町","胆沢郡金ケ崎町","花巻市","西磐井郡平泉町","遠野市","釜石市","陸前高田市"],"5840":["一関市","北上市","和賀郡西和賀町","奥州市","胆沢郡金ケ崎町"],"6041":["下閉伊郡岩泉町","下閉伊郡普代村","久慈市","九戸郡九戸村","九戸郡洋野町","九戸郡軽米町","九戸郡野田村","二戸市","二戸郡一戸町","八幡平市","岩手郡岩手町","岩手郡葛巻町"],"6040":["八幡平市"]},"04":{"5740":["亘理郡亘理町","亘理郡山元町","仙台市太白区","仙台市宮城野区","仙台市泉区","仙台市若林区","仙台市青葉区","刈田郡七ヶ宿町","刈田郡蔵王町","加美郡加美町","加美郡色麻町","名取市","塩竈市","多賀城市","大崎市","宮城郡利府町","岩沼市","柴田郡大河原町","柴田郡川崎町","柴田郡村田町","柴田郡柴田町","栗原市","白石市","角田市","遠田郡美里町","黒川郡大和町","黒川郡大衡村","黒川郡大郷町","黒川郡富谷町"],"5741":["仙台市宮城野区","塩竈市","多賀城市","大崎市","宮城郡七ヶ浜町","宮城郡利府町","宮城郡松島町","本吉郡南三陸町","東松島市","栗原市","牡鹿郡女川町","登米市","石巻市","遠田郡涌谷町","遠田郡美里町","黒川郡大郷町"],"5841":["本吉郡南三陸町","栗原市","気仙沼市","登米市"],"5640":["亘理郡亘理町","亘理郡山元町","伊具郡丸森町","刈田郡七ヶ宿町","白石市","角田市"],"5840":["加美郡加美町","大崎市","栗原市"]},"05":{"5940":["仙北市","仙北郡美郷町","北秋田市","北秋田郡上小阿仁村","南秋田郡五城目町","南秋田郡井川町","南秋田郡八郎潟町","南秋田郡大潟村","大仙市","山本郡三種町","横手市","潟上市","由利本荘市","秋田市","鹿角市"],"6039":["南秋田郡大潟村","山本郡三種町","山本郡八峰町","男鹿市","能代市"],"6040":["北秋田市","北秋田郡上小阿仁村","南秋田郡五城目町","南秋田郡大潟村","大館市","山本郡三種町","山本郡八峰町","山本郡藤里町","能代市","鹿角市","鹿角郡小坂町"],"5840":["にかほ市","横手市","湯沢市","由利本荘市","雄勝郡東成瀬村","雄勝郡羽後町"],"5939":["南秋田郡大潟村","潟上市","由利本荘市","男鹿市"],"5839":["にかほ市","由利本荘市"]},"06":{"5740":["上山市","北村山郡大石田町","南陽市","天童市","寒河江市","尾花沢市","山形市","最上郡大蔵村","最上郡戸沢村","最上郡最上町","最上郡舟形町","村山市","東村山郡中山町","東村山郡山辺町","東根市","東田川郡庄内町","東置賜郡川西町","東置賜郡高畠町","西村山郡大江町","西村山郡朝日町","西村山郡河北町","西村山郡西川町","西置賜郡白鷹町","西置賜郡飯豊町","長井市","鶴岡市"],"5639":["東置賜郡川西町","米沢市","西置賜郡小国町","西置賜郡飯豊町"],"5640":["東置賜郡川西町","東置賜郡高畠町","米沢市"],"5739":["東田川郡庄内町","東置賜郡川西町","西村山郡大江町","西村山郡朝日町","西村山郡西川町","西置賜郡小国町","西置賜郡白鷹町","西置賜郡飯豊町","長井市","鶴岡市"],"5839":["東田川郡三川町","東田川郡庄内町","酒田市","飽海郡遊佐町","鶴岡市"],"5840":["尾花沢市","新庄市","最上郡大蔵村","最上郡戸沢村","最上郡最上町","最上郡真室川町","最上郡舟形町","最上郡金山町","最上郡鮭川村","東田川郡庄内町","酒田市","飽海郡遊佐町"]},"07":{"5640":["二本松市","伊達市","伊達郡国見町","伊達郡川俣町","伊達郡桑折町","会津若松市","南相馬市","双葉郡双葉町","双葉郡大熊町","双葉郡富岡町","双葉郡川内村","双葉郡楢葉町","双葉郡浪江町","双葉郡葛尾村","喜多方市","安達郡大玉村","岩瀬郡天栄村","本宮市","田村市","田村郡三春町","田村郡小野町","相馬市","相馬郡新地町","相馬郡飯舘村","福島市","耶麻郡北塩原村","耶麻郡猪苗代町","耶麻郡磐梯町","郡山市","須賀川市"],"5539":["会津若松市","南会津郡下郷町","南会津郡南会津町","南会津郡只見町","南会津郡檜枝岐村","大沼郡会津美里町","大沼郡昭和村","大沼郡金山町","岩瀬郡天栄村","西白河郡西郷村"],"5540":["いわき市","会津若松市","南会津郡下郷町","双葉郡富岡町","双葉郡川内村","双葉郡広野町","双葉郡楢葉町","岩瀬郡天栄村","岩瀬郡鏡石町","東白川郡塙町","東白川郡棚倉町","東白川郡矢祭町","東白川郡鮫川村","田村市","田村郡小野町","白河市","石川郡古殿町","石川郡平田村","石川郡浅川町","石川郡玉川村","石川郡石川町","西白河郡中島村","西白河郡泉崎村","西白河郡矢吹町","西白河郡西郷村","郡山市","須賀川市"],"5639":["会津若松市","南会津郡下郷町","南会津郡只見町","喜多方市","大沼郡三島町","大沼郡会津美里町","大沼郡昭和村","大沼郡金山町","河沼郡会津坂下町","河沼郡柳津町","河沼郡湯川村","耶麻郡北塩原村","耶麻郡磐梯町","耶麻郡西会津町"],"5541":["いわき市","双葉郡富岡町","双葉郡広野町","双葉郡楢葉町"],"5641":["南相馬市","双葉郡双葉町","双葉郡大熊町","双葉郡富岡町","双葉郡浪江町","相馬市"]},"08":{"5440":["かすみがうら市","つくばみらい市","つくば市","ひたちなか市","下妻市","土浦市","小美玉市","常総市","常陸大宮市","常陸太田市","日立市","東茨城郡城里町","東茨城郡大洗町","東茨城郡茨城町","桜川市","水戸市","潮来市","牛久市","石岡市","稲敷市","稲敷郡美浦村","稲敷郡阿見町","笠間市","筑西市","行方市","那珂市","那珂郡東海村","鉾田市","鹿嶋市","龍ケ崎市"],"5540":["久慈郡大子町","北茨城市","常陸大宮市","常陸太田市","日立市","高萩市"],"5439":["つくばみらい市","つくば市","下妻市","古河市","坂東市","常総市","猿島郡五霞町","猿島郡境町","筑西市","結城市","結城郡八千代町"],"5340":["つくばみらい市","つくば市","北相馬郡利根町","取手市","守谷市","潮来市","牛久市","神栖市","稲敷市","稲敷郡河内町","稲敷郡美浦村","稲敷郡阿見町","行方市","鹿嶋市","龍ケ崎市"],"5339":["つくばみらい市","取手市","坂東市","守谷市","常総市"]},"09":{"5439":["さくら市","下都賀郡壬生町","下都賀郡野木町","下野市","佐野市","塩谷郡高根沢町","宇都宮市","小山市","日光市","栃木市","河内郡上三川町","真岡市","芳賀郡芳賀町","足利市","鹿沼市"],"5440":["さくら市","塩谷郡高根沢町","宇都宮市","真岡市","芳賀郡市貝町","芳賀郡益子町","芳賀郡芳賀町","芳賀郡茂木町","那須烏山市"],"5539":["さくら市","塩谷郡塩谷町","塩谷郡高根沢町","大田原市","宇都宮市","日光市","矢板市","那須塩原市","那須郡那須町","鹿沼市"],"5540":["さくら市","塩谷郡高根沢町","大田原市","那須塩原市","那須烏山市","那須郡那珂川町","那須郡那須町"]},"10":{"5439":["みどり市","伊勢崎市","佐波郡玉村町","利根郡みなかみ町","利根郡川場村","利根郡昭和村","前橋市","北群馬郡吉岡町","北群馬郡榛東村","太田市","桐生市","沼田市","渋川市","藤岡市","邑楽郡千代田町","邑楽郡大泉町","邑楽郡明和町","邑楽郡板倉町","邑楽郡邑楽町","館林市","高崎市"],"5438":["利根郡みなかみ町","北群馬郡吉岡町","北群馬郡榛東村","吾妻郡中之条町","吾妻郡嬬恋村","吾妻郡東吾妻町","吾妻郡草津町","吾妻郡長野原町","吾妻郡高山村","多野郡上野村","多野郡神流町","安中市","富岡市","沼田市","渋川市","甘楽郡下仁田町","甘楽郡南牧村","甘楽郡甘楽町","藤岡市","高崎市"],"5539":["利根郡みなかみ町","利根郡川場村","利根郡片品村","沼田市"],"5338":["多野郡上野村"],"5538":["利根郡みなかみ町","吾妻郡中之条町"]},"11":{"5339":["さいたま市中央区","さいたま市北区","さいたま市南区","さいたま市大宮区","さいたま市岩槻区","さいたま市桜区","さいたま市浦和区","さいたま市緑区","さいたま市西区","さいたま市見沼区","ふじみ野市","三郷市","上尾市","入間市","入間郡三芳町","入間郡毛呂山町","入間郡越生町","八潮市","北本市","北葛飾郡杉戸町","北葛飾郡松伏町","北足立郡伊奈町","南埼玉郡宮代町","吉川市","和光市","坂戸市","富士見市","川口市","川越市","志木市","戸田市","所沢市","新座市","日高市","春日部市","朝霞市","東松山市","桶川市","比企郡ときがわ町","比企郡川島町","比企郡鳩山町","狭山市","白岡市","秩父市","秩父郡小鹿野町","秩父郡東秩父村","秩父郡横瀬町","草加市","蓮田市","蕨市","越谷市","飯能市","鶴ヶ島市"],"5439":["さいたま市岩槻区","上尾市","久喜市","児玉郡上里町","児玉郡神川町","児玉郡美里町","加須市","北本市","北葛飾郡杉戸町","北足立郡伊奈町","南埼玉郡宮代町","大里郡寄居町","幸手市","春日部市","本庄市","東松山市","桶川市","比企郡ときがわ町","比企郡吉見町","比企郡小川町","比企郡嵐山町","比企郡川島町","比企郡滑川町","比企郡鳩山町","深谷市","熊谷市","白岡市","秩父市","秩父郡小鹿野町","秩父郡東秩父村","秩父郡横瀬町","秩父郡皆野町","秩父郡長瀞町","羽生市","蓮田市","行田市","鴻巣市"],"5338":["秩父市","秩父郡小鹿野町"],"5438":["児玉郡神川町","秩父市","秩父郡小鹿野町"]},"12":{"5340":["いすみ市","佐倉市","八千代市","八街市","匝瑳市","千葉市中央区","千葉市稲毛区","千葉市緑区","千葉市美浜区","千葉市花見川区","千葉市若葉区","印旛郡栄町","印旛郡酒々井町","印西市","君津市","四街道市","大網白里市","富里市","山武市","山武郡九十九里町","山武郡横芝光町","山武郡芝山町","市原市","成田市","我孫子市","旭市","木更津市","東金市","松戸市","柏市","白井市","習志野市","船橋市","茂原市","袖ケ浦市","銚子市","鎌ケ谷市","長生郡一宮町","長生郡白子町","長生郡睦沢町","長生郡長南町","長生郡長柄町","長生郡長生村","香取市","香取郡多古町","香取郡東庄町","香取郡神崎町"],"5339":["君津市","富津市","市川市","我孫子市","木更津市","松戸市","柏市","流山市","浦安市","習志野市","船橋市","袖ケ浦市","野田市","鎌ケ谷市"],"5239":["南房総市","君津市","安房郡鋸南町","富津市","木更津市","館山市","鴨川市"],"5240":["いすみ市","勝浦市","南房総市","君津市","夷隅郡大多喜町","夷隅郡御宿町","富津市","市原市","木更津市","長生郡一宮町","長生郡睦沢町","長生郡長南町","鴨川市"],"5439":["野田市"]},"13":{"5339":["あきる野市","三鷹市","世田谷区","中央区","中野区","八王子市","北区","千代田区","台東区","品川区","国分寺市","国立市","境界未定地域","墨田区","多摩市","大田区","小平市","小金井市","府中市","文京区","新宿区","日野市","昭島市","杉並区","東久留米市","東大和市","東村山市","板橋区","武蔵村山市","武蔵野市","江戸川区","江東区","清瀬市","渋谷区","港区","狛江市","町田市","目黒区","福生市","稲城市","立川市","練馬区","羽村市","荒川区","葛飾区","西多摩郡奥多摩町","西多摩郡日の出町","西多摩郡檜原村","西多摩郡瑞穂町","西東京市","調布市","豊島区","足立区","青梅市"],"5338":["西多摩郡奥多摩町"],"5239":["大島支庁大島町"],"5139":["三宅支庁三宅村","大島支庁利島村","大島支庁新島村","大島支庁神津島村"],"5038":["大島支庁神津島村"],"5039":["三宅支庁御蔵島村"],"4939":["八丈支庁八丈町"],"4440":["八丈支庁青ヶ島村"],"4540":["八丈支庁青ヶ島村"],"4739":["八丈支庁青ヶ島村"],"4740":["八丈支庁青ヶ島村"],"4839":["八丈支庁青ヶ島村"],"3036":["小笠原支庁小笠原村"],"3641":["小笠原支庁小笠原村"],"3653":["小笠原支庁小笠原村"],"3741":["小笠原支庁小笠原村"],"3841":["小笠原支庁小笠原村"],"3942":["小笠原支庁小笠原村"],"4040":["小笠原支庁小笠原村"],"4042":["小笠原支庁小笠原村"],"4142":["小笠原支庁小笠原村"]},"14":{"5339":["中郡大磯町","伊勢原市","南足柄市","厚木市","大和市","川崎市中原区","川崎市多摩区","川崎市宮前区","川崎市川崎区","川崎市幸区","川崎市高津区","川崎市麻生区","平塚市","座間市","愛甲郡愛川町","愛甲郡清川村","横浜市中区","横浜市保土ケ谷区","横浜市南区","横浜市戸塚区","横浜市旭区","横浜市栄区","横浜市泉区","横浜市港北区","横浜市港南区","横浜市瀬谷区","横浜市磯子区","横浜市神奈川区","横浜市緑区","横浜市西区","横浜市都筑区","横浜市金沢区","横浜市青葉区","横浜市鶴見区","海老名市","相模原市中央区","相模原市南区","相模原市緑区","秦野市","綾瀬市","茅ヶ崎市","藤沢市","足柄上郡中井町","足柄上郡大井町","足柄上郡山北町","足柄上郡松田町","足柄上郡開成町","鎌倉市","高座郡寒川町"],"5239":["三浦市","三浦郡葉山町","中郡二宮町","中郡大磯町","南足柄市","小田原市","平塚市","横浜市金沢区","横須賀市","茅ヶ崎市","藤沢市","足柄上郡中井町","足柄上郡大井町","足柄上郡山北町","足柄上郡開成町","足柄下郡湯河原町","足柄下郡真鶴町","足柄下郡箱根町","逗子市","鎌倉市"],"5338":["足柄上郡山北町"],"5238":["足柄下郡箱根町"]},"15":{"5639":["三条市","五泉市","加茂市","北蒲原郡聖籠町","南蒲原郡田上町","岩船郡関川村","新潟市中央区","新潟市北区","新潟市南区","新潟市東区","新潟市江南区","新潟市秋葉区","新潟市西区","新発田市","東蒲原郡阿賀町","胎内市","見附市","長岡市","阿賀野市","魚沼市"],"5739":["北蒲原郡聖籠町","岩船郡粟島浦村","岩船郡関川村","新潟市北区","新発田市","村上市","胎内市"],"5638":["三島郡出雲崎町","三条市","佐渡市","刈羽郡刈羽村","加茂市","小千谷市","新潟市南区","新潟市西区","新潟市西蒲区","柏崎市","燕市","西蒲原郡弥彦村","見附市","長岡市","魚沼市"],"5538":["上越市","中魚沼郡津南町","十日町市","南魚沼市","南魚沼郡湯沢町","妙高市","小千谷市","柏崎市","糸魚川市","長岡市","魚沼市"],"5537":["糸魚川市"],"5738":["佐渡市"],"5539":["南魚沼市","魚沼市"]},"16":{"5437":["中新川郡上市町","中新川郡立山町","南砺市","富山市","射水市","砺波市","高岡市","黒部市"],"5537":["下新川郡入善町","下新川郡朝日町","中新川郡上市町","中新川郡立山町","中新川郡舟橋村","富山市","射水市","氷見市","滑川市","砺波市","高岡市","魚津市","黒部市"],"5436":["南砺市","小矢部市","砺波市","高岡市"],"5536":["小矢部市","氷見市","砺波市","高岡市"]},"17":{"5436":["加賀市","小松市","河北郡内灘町","河北郡津幡町","白山市","能美市","能美郡川北町","野々市市","金沢市"],"5536":["かほく市","七尾市","河北郡内灘町","河北郡津幡町","羽咋市","羽咋郡宝達志水町","羽咋郡志賀町","輪島市","金沢市","鳳珠郡穴水町","鳳珠郡能登町","鹿島郡中能登町"],"5537":["七尾市","鳳珠郡穴水町","鳳珠郡能登町"],"5636":["輪島市","鳳珠郡能登町"],"5637":["珠洲市","輪島市","鳳珠郡能登町"]},"18":{"5335":["三方上中郡若狭町","三方郡美浜町","丹生郡越前町","大飯郡おおい町","大飯郡高浜町","小浜市","敦賀市","福井市"],"5336":["三方郡美浜町","丹生郡越前町","今立郡池田町","南条郡南越前町","大野市","敦賀市","福井市","越前市","鯖江市"],"5435":["福井市"],"5436":["あわら市","丹生郡越前町","勝山市","吉田郡永平寺町","坂井市","大野市","福井市","鯖江市"]},"19":{"5338":["上野原市","中央市","中巨摩郡昭和町","北杜市","北都留郡丹波山村","北都留郡小菅村","南アルプス市","南巨摩郡南部町","南巨摩郡富士川町","南巨摩郡早川町","南巨摩郡身延町","南都留郡富士河口湖町","南都留郡山中湖村","南都留郡忍野村","南都留郡西桂町","南都留郡道志村","南都留郡鳴沢村","大月市","富士吉田市","山梨市","甲州市","甲府市","甲斐市","笛吹市","西八代郡市川三郷町","都留市","韮崎市"],"5339":["上野原市","北都留郡小菅村","南都留郡道志村","大月市","都留市"],"5238":["南巨摩郡南部町","南巨摩郡早川町","南巨摩郡身延町"]},"20":{"5437":["上伊那郡辰野町","上水内郡小川村","北安曇郡松川村","北安曇郡池田町","北安曇郡白馬村","塩尻市","大町市","安曇野市","岡谷市","木曽郡木曽町","木曽郡木祖村","東筑摩郡山形村","東筑摩郡朝日村","東筑摩郡生坂村","東筑摩郡筑北村","東筑摩郡麻績村","松本市","長野市"],"5438":["上伊那郡辰野町","上水内郡小川村","上田市","上高井郡高山村","下高井郡山ノ内町","佐久市","北佐久郡御代田町","北佐久郡立科町","北佐久郡軽井沢町","千曲市","南佐久郡佐久穂町","南佐久郡北相木村","南佐久郡南牧村","南佐久郡南相木村","南佐久郡小海町","埴科郡坂城町","塩尻市","小県郡長和町","小県郡青木村","小諸市","岡谷市","東御市","東筑摩郡筑北村","東筑摩郡麻績村","松本市","茅野市","諏訪市","諏訪郡下諏訪町","長野市","須坂市"],"5537":["上水内郡小川村","北安曇郡小谷村","北安曇郡白馬村","長野市"],"5538":["上水内郡信濃町","上水内郡飯綱町","上高井郡小布施町","上高井郡高山村","下水内郡栄村","下高井郡山ノ内町","下高井郡木島平村","下高井郡野沢温泉村","中野市","北安曇郡小谷村","長野市","須坂市","飯山市"],"5237":["下伊那郡売木村","下伊那郡天龍村","下伊那郡平谷村","下伊那郡根羽村","下伊那郡泰阜村","下伊那郡阿南町","飯田市"],"5238":["飯田市"],"5337":["上伊那郡中川村","上伊那郡南箕輪村","上伊那郡宮田村","上伊那郡箕輪町","上伊那郡辰野町","上伊那郡飯島町","下伊那郡下條村","下伊那郡喬木村","下伊那郡大鹿村","下伊那郡平谷村","下伊那郡松川町","下伊那郡泰阜村","下伊那郡豊丘村","下伊那郡阿南町","下伊那郡阿智村","下伊那郡高森町","伊那市","塩尻市","木曽郡上松町","木曽郡南木曽町","木曽郡大桑村","木曽郡木曽町","木曽郡木祖村","木曽郡王滝村","飯田市","駒ヶ根市"],"5338":["上伊那郡中川村","上伊那郡箕輪町","上伊那郡辰野町","下伊那郡大鹿村","下伊那郡松川町","下伊那郡豊丘村","伊那市","南佐久郡南牧村","南佐久郡南相木村","南佐久郡川上村","茅野市","諏訪市","諏訪郡原村","諏訪郡富士見町","飯田市","駒ヶ根市"]},"21":{"5336":["不破郡垂井町","不破郡関ケ原町","加茂郡坂祝町","加茂郡富加町","可児市","各務原市","大垣市","安八郡安八町","安八郡神戸町","山県市","岐阜市","揖斐郡大野町","揖斐郡揖斐川町","揖斐郡池田町","本巣市","本巣郡北方町","瑞穂市","美濃加茂市","美濃市","羽島市","羽島郡岐南町","羽島郡笠松町","郡上市","関市","養老郡養老町","高山市"],"5236":["不破郡垂井町","不破郡関ケ原町","大垣市","安八郡安八町","安八郡輪之内町","海津市","羽島市","養老郡養老町"],"5337":["下呂市","中津川市","加茂郡七宗町","加茂郡八百津町","加茂郡坂祝町","加茂郡富加町","加茂郡川辺町","加茂郡東白川村","加茂郡白川町","可児市","可児郡御嵩町","土岐市","多治見市","恵那市","瑞浪市","美濃加茂市","郡上市","関市","高山市"],"5436":["大野郡白川村","郡上市","飛騨市","高山市"],"5437":["下呂市","飛騨市","高山市"],"5237":["土岐市","多治見市","恵那市","瑞浪市"]},"22":{"5238":["三島市","下田市","伊豆の国市","伊豆市","周智郡森町","富士宮市","富士市","島田市","御前崎市","御殿場市","掛川市","榛原郡吉田町","榛原郡川根本町","沼津市","浜松市天竜区","焼津市","牧之原市","田方郡函南町","菊川市","藤枝市","袋井市","裾野市","賀茂郡南伊豆町","賀茂郡東伊豆町","賀茂郡松崎町","賀茂郡河津町","賀茂郡西伊豆町","静岡市清水区","静岡市葵区","静岡市駿河区","駿東郡小山町","駿東郡清水町","駿東郡長泉町"],"5338":["富士宮市","富士市","御殿場市","榛原郡川根本町","静岡市葵区","駿東郡小山町"],"5237":["周智郡森町","掛川市","榛原郡川根本町","浜松市中区","浜松市北区","浜松市南区","浜松市天竜区","浜松市東区","浜松市浜北区","浜松市西区","湖西市","磐田市","袋井市"],"5137":["掛川市","浜松市南区","磐田市","袋井市"],"5239":["三島市","伊東市","伊豆の国市","伊豆市","熱海市","田方郡函南町","裾野市","賀茂郡東伊豆町","賀茂郡河津町","駿東郡小山町"],"5138":["下田市","御前崎市","掛川市","牧之原市","菊川市","賀茂郡南伊豆町"],"5339":["駿東郡小山町"]},"23":{"5236":["あま市","一宮市","丹羽郡大口町","刈谷市","北名古屋市","半田市","名古屋市中区","名古屋市中川区","名古屋市中村区","名古屋市北区","名古屋市千種区","名古屋市南区","名古屋市名東区","名古屋市天白区","名古屋市守山区","名古屋市昭和区","名古屋市東区","名古屋市港区","名古屋市熱田区","名古屋市瑞穂区","名古屋市緑区","名古屋市西区","大府市","小牧市","岩倉市","常滑市","弥富市","愛西市","春日井市","東海市","江南市","津島市","海部郡大治町","海部郡蟹江町","海部郡飛島村","清須市","犬山市","知多市","知多郡南知多町","知多郡東浦町","知多郡武豊町","知多郡美浜町","知多郡阿久比町","碧南市","稲沢市","西尾市","西春日井郡豊山町","豊明市","高浜市"],"5237":["みよし市","刈谷市","北設楽郡東栄町","北設楽郡設楽町","北設楽郡豊根村","名古屋市名東区","名古屋市天白区","名古屋市守山区","名古屋市緑区","大府市","安城市","小牧市","尾張旭市","岡崎市","愛知郡東郷町","新城市","日進市","春日井市","瀬戸市","犬山市","田原市","知多郡南知多町","知立市","碧南市","蒲郡市","西尾市","豊川市","豊明市","豊橋市","豊田市","長久手市","額田郡幸田町","高浜市"],"5137":["田原市","知多郡南知多町","豊橋市"],"5336":["一宮市","丹羽郡大口町","丹羽郡扶桑町","江南市","犬山市"],"5337":["小牧市","春日井市","犬山市"],"5136":["知多郡南知多町"]},"24":{"5136":["伊勢市","伊賀市","北牟婁郡紀北町","名張市","多気郡多気町","多気郡大台町","多気郡明和町","尾鷲市","度会郡南伊勢町","度会郡大紀町","度会郡度会町","度会郡玉城町","志摩市","松阪市","津市","熊野市","鳥羽市"],"5236":["いなべ市","三重郡川越町","三重郡朝日町","三重郡菰野町","亀山市","伊賀市","名張市","員弁郡東員町","四日市市","桑名市","桑名郡木曽岬町","津市","鈴鹿市"],"5036":["南牟婁郡御浜町","南牟婁郡紀宝町","尾鷲市","熊野市"],"5035":["南牟婁郡御浜町","南牟婁郡紀宝町","熊野市"],"5135":["熊野市"]},"25":{"5235":["大津市","守山市","栗東市","甲賀市","草津市","近江八幡市","野洲市","高島市"],"5236":["大津市","守山市","彦根市","愛知郡愛荘町","東近江市","栗東市","湖南市","犬上郡多賀町","犬上郡甲良町","犬上郡豊郷町","甲賀市","米原市","蒲生郡日野町","蒲生郡竜王町","近江八幡市","野洲市","高島市"],"5336":["彦根市","米原市","長浜市","高島市"],"5335":["高島市"]},"26":{"5235":["久世郡久御山町","乙訓郡大山崎町","亀岡市","京田辺市","京都市上京区","京都市下京区","京都市中京区","京都市伏見区","京都市北区","京都市南区","京都市右京区","京都市山科区","京都市左京区","京都市東山区","京都市西京区","八幡市","南丹市","向日市","城陽市","宇治市","木津川市","相楽郡南山城村","相楽郡和束町","相楽郡笠置町","相楽郡精華町","福知山市","綴喜郡井手町","綴喜郡宇治田原町","綾部市","船井郡京丹波町","長岡京市"],"5234":["福知山市"],"5334":["京丹後市","福知山市"],"5335":["与謝郡与謝野町","与謝郡伊根町","京丹後市","南丹市","宮津市","福知山市","綾部市","舞鶴市","船井郡京丹波町"],"5236":["相楽郡南山城村","相楽郡和束町"]},"27":{"5235":["三島郡島本町","交野市","吹田市","四條畷市","大東市","大阪市中央区","大阪市北区","大阪市城東区","大阪市大正区","大阪市天王寺区","大阪市旭区","大阪市東成区","大阪市東淀川区","大阪市此花区","大阪市浪速区","大阪市淀川区","大阪市港区","大阪市福島区","大阪市西区","大阪市西淀川区","大阪市都島区","大阪市鶴見区","守口市","寝屋川市","摂津市","東大阪市","枚方市","池田市","箕面市","茨木市","豊中市","豊能郡能勢町","豊能郡豊能町","門真市","高槻市"],"5135":["八尾市","南河内郡千早赤阪村","南河内郡太子町","南河内郡河南町","和泉市","堺市中区","堺市北区","堺市南区","堺市堺区","堺市東区","堺市美原区","堺市西区","大阪市中央区","大阪市住之江区","大阪市住吉区","大阪市大正区","大阪市天王寺区","大阪市平野区","大阪市東住吉区","大阪市東成区","大阪市此花区","大阪市浪速区","大阪市港区","大阪市生野区","大阪市西成区","大阪市阿倍野区","大阪狭山市","富田林市","岸和田市","東大阪市","松原市","柏原市","河内長野市","泉佐野市","泉北郡忠岡町","泉南市","泉南郡岬町","泉南郡熊取町","泉南郡田尻町","泉大津市","羽曳野市","藤井寺市","貝塚市","阪南市","高石市"]},"28":{"5235":["三木市","三田市","丹波市","伊丹市","加東市","宝塚市","小野市","尼崎市","川西市","川辺郡猪名川町","神戸市中央区","神戸市兵庫区","神戸市北区","神戸市垂水区","神戸市東灘区","神戸市灘区","神戸市西区","神戸市長田区","神戸市須磨区","篠山市","芦屋市","西宮市","西脇市"],"5135":["明石市","淡路市","神戸市中央区","神戸市兵庫区","神戸市垂水区","神戸市西区","神戸市長田区","神戸市須磨区"],"5134":["南あわじ市","姫路市","明石市","洲本市","淡路市","神戸市西区"],"5234":["たつの市","三木市","丹波市","佐用郡佐用町","加古川市","加古郡播磨町","加古郡稲美町","加東市","加西市","多可郡多可町","姫路市","宍粟市","小野市","揖保郡太子町","明石市","朝来市","相生市","神崎郡市川町","神崎郡神河町","神崎郡福崎町","神戸市西区","西脇市","赤穂市","赤穂郡上郡町","養父市","高砂市"],"5334":["宍粟市","朝来市","美方郡新温泉町","美方郡香美町","豊岡市","養父市"],"5335":["豊岡市"]},"29":{"5135":["五條市","北葛城郡上牧町","北葛城郡広陵町","北葛城郡河合町","北葛城郡王寺町","吉野郡上北山村","吉野郡下北山村","吉野郡下市町","吉野郡十津川村","吉野郡吉野町","吉野郡大淀町","吉野郡天川村","吉野郡川上村","吉野郡東吉野村","吉野郡野迫川村","吉野郡黒滝村","大和郡山市","大和高田市","天理市","奈良市","宇陀市","山辺郡山添村","御所市","桜井市","橿原市","生駒市","生駒郡三郷町","生駒郡安堵町","生駒郡平群町","生駒郡斑鳩町","磯城郡三宅町","磯城郡川西町","磯城郡田原本町","葛城市","香芝市","高市郡明日香村","高市郡高取町"],"5136":["吉野郡上北山村","吉野郡下北山村","吉野郡川上村","吉野郡東吉野村","奈良市","宇陀市","宇陀郡御杖村","宇陀郡曽爾村","山辺郡山添村"],"5235":["大和郡山市","奈良市","山辺郡山添村","生駒市"],"5236":["奈良市","山辺郡山添村"],"5035":["吉野郡下北山村","吉野郡十津川村"]},"30":{"5134":["和歌山市"],"5135":["伊都郡かつらぎ町","伊都郡九度山町","伊都郡高野町","和歌山市","岩出市","日高郡日高川町","日高郡由良町","有田市","有田郡広川町","有田郡有田川町","有田郡湯浅町","東牟婁郡北山村","橋本市","海南市","海草郡紀美野町","田辺市","紀の川市"],"5035":["御坊市","新宮市","日高郡みなべ町","日高郡印南町","日高郡日高川町","日高郡日高町","日高郡由良町","日高郡美浜町","有田郡広川町","東牟婁郡串本町","東牟婁郡北山村","東牟婁郡古座川町","東牟婁郡太地町","東牟婁郡那智勝浦町","田辺市","西牟婁郡すさみ町","西牟婁郡上富田町","西牟婁郡白浜町"],"5036":["新宮市","東牟婁郡北山村"],"5136":["東牟婁郡北山村"]},"31":{"5233":["倉吉市","日野郡日南町","日野郡日野町","日野郡江府町","東伯郡三朝町","西伯郡伯耆町","西伯郡南部町","鳥取市"],"5234":["八頭郡八頭町","八頭郡智頭町","八頭郡若桜町","鳥取市"],"5333":["倉吉市","境港市","日野郡江府町","東伯郡三朝町","東伯郡北栄町","東伯郡湯梨浜町","東伯郡琴浦町","米子市","西伯郡伯耆町","西伯郡南部町","西伯郡大山町","西伯郡日吉津村","鳥取市"],"5334":["八頭郡八頭町","八頭郡若桜町","岩美郡岩美町","東伯郡三朝町","鳥取市"]},"32":{"5233":["仁多郡奥出雲町","安来市","松江市","雲南市"],"5332":["出雲市","松江市","雲南市"],"5333":["安来市","松江市","隠岐郡知夫村","雲南市"],"5231":["浜田市","益田市"],"5232":["仁多郡奥出雲町","出雲市","大田市","江津市","浜田市","益田市","邑智郡川本町","邑智郡美郷町","邑智郡邑南町","雲南市","飯石郡飯南町"],"5131":["益田市","鹿足郡吉賀町","鹿足郡津和野町"],"5132":["益田市","鹿足郡吉賀町"],"5433":["隠岐郡海士町","隠岐郡知夫村","隠岐郡西ノ島町","隠岐郡隠岐の島町"],"5432":["隠岐郡知夫村","隠岐郡西ノ島町"],"5531":["隠岐郡隠岐の島町"]},"33":{"5133":["井原市","倉敷市","小田郡矢掛町","岡山市中区","岡山市北区","岡山市南区","岡山市東区","浅口市","浅口郡里庄町","玉野市","笠岡市","総社市","都窪郡早島町"],"5233":["久米郡久米南町","久米郡美咲町","井原市","倉敷市","加賀郡吉備中央町","小田郡矢掛町","岡山市中区","岡山市北区","岡山市東区","新見市","津山市","真庭市","真庭郡新庄村","総社市","苫田郡鏡野町","赤磐市","高梁市"],"5234":["久米郡久米南町","久米郡美咲町","備前市","勝田郡勝央町","勝田郡奈義町","和気郡和気町","岡山市中区","岡山市東区","津山市","瀬戸内市","美作市","苫田郡鏡野町","英田郡西粟倉村","赤磐市"],"5134":["岡山市南区","岡山市東区","瀬戸内市","玉野市"],"5333":["真庭市","苫田郡鏡野町"],"5334":["苫田郡鏡野町"]},"34":{"5132":["三原市","三次市","世羅郡世羅町","呉市","大竹市","安芸郡坂町","安芸郡府中町","安芸郡海田町","安芸郡熊野町","安芸高田市","山県郡北広島町","山県郡安芸太田町","広島市中区","広島市佐伯区","広島市南区","広島市安佐北区","広島市安佐南区","広島市安芸区","広島市東区","広島市西区","廿日市市","東広島市","江田島市","竹原市","豊田郡大崎上島町"],"5133":["三原市","三次市","世羅郡世羅町","尾道市","府中市","神石郡神石高原町","福山市","竹原市"],"5233":["三次市","世羅郡世羅町","庄原市","府中市","神石郡神石高原町","福山市"],"5232":["三次市","世羅郡世羅町","安芸高田市","山県郡北広島町","山県郡安芸太田町","庄原市"]},"35":{"5030":["下関市"],"5031":["下松市","下関市","光市","周南市","宇部市","山口市","山陽小野田市","熊毛郡上関町","熊毛郡田布施町","防府市"],"5130":["下関市","長門市"],"5131":["下松市","下関市","光市","周南市","宇部市","山口市","山陽小野田市","岩国市","美祢市","萩市","長門市","防府市","阿武郡阿武町"],"5231":["萩市"],"5032":["光市","大島郡周防大島町","岩国市","柳井市","熊毛郡上関町","熊毛郡平生町","熊毛郡田布施町"],"5132":["光市","周南市","大島郡周防大島町","岩国市","柳井市","熊毛郡田布施町","玖珂郡和木町"]},"36":{"5034":["三好市","三好郡東みよし町","勝浦郡上勝町","勝浦郡勝浦町","吉野川市","名東郡佐那河内村","名西郡神山町","小松島市","徳島市","海部郡海陽町","海部郡牟岐町","海部郡美波町","美馬市","美馬郡つるぎ町","那賀郡那賀町","阿南市"],"5134":["三好市","三好郡東みよし町","吉野川市","名東郡佐那河内村","名西郡石井町","名西郡神山町","小松島市","徳島市","板野郡上板町","板野郡北島町","板野郡松茂町","板野郡板野町","板野郡藍住町","美馬市","美馬郡つるぎ町","阿波市","鳴門市"],"5133":["三好市","三好郡東みよし町","美馬市","美馬郡つるぎ町"],"5033":["三好市","三好郡東みよし町","美馬郡つるぎ町"]},"37":{"5133":["三豊市","丸亀市","仲多度郡まんのう町","仲多度郡多度津町","仲多度郡琴平町","善通寺市","坂出市","綾歌郡宇多津町","綾歌郡綾川町","観音寺市","香川郡直島町","高松市"],"5134":["さぬき市","仲多度郡まんのう町","小豆郡土庄町","小豆郡小豆島町","木田郡三木町","東かがわ市","綾歌郡綾川町","香川郡直島町","高松市"]},"38":{"5032":["上浮穴郡久万高原町","今治市","伊予市","伊予郡松前町","伊予郡砥部町","八幡浜市","北宇和郡鬼北町","喜多郡内子町","大洲市","宇和島市","東温市","松山市","西予市","西宇和郡伊方町","西条市"],"5132":["今治市","松山市"],"5033":["上浮穴郡久万高原町","今治市","四国中央市","新居浜市","東温市","西条市"],"5133":["今治市","四国中央市","新居浜市","越智郡上島町"],"4932":["北宇和郡松野町","北宇和郡鬼北町","南宇和郡愛南町","宇和島市","西予市"]},"39":{"5033":["南国市","吾川郡いの町","吾川郡仁淀川町","土佐市","土佐郡土佐町","土佐郡大川村","安芸市","安芸郡安田町","安芸郡田野町","安芸郡芸西村","長岡郡大豊町","長岡郡本山町","須崎市","香南市","香美市","高岡郡中土佐町","高岡郡佐川町","高岡郡四万十町","高岡郡日高村","高岡郡檮原町","高岡郡津野町","高岡郡越知町","高知市"],"4934":["室戸市"],"5034":["安芸市","安芸郡北川村","安芸郡奈半利町","安芸郡安田町","安芸郡東洋町","安芸郡田野町","安芸郡馬路村","室戸市","香美市"],"4932":["四万十市","土佐清水市","宿毛市","幡多郡三原村","幡多郡大月町","幡多郡黒潮町","高岡郡四万十町","高岡郡檮原町"],"4933":["四万十市","土佐清水市","幡多郡黒潮町","高岡郡中土佐町","高岡郡四万十町","高岡郡檮原町"],"5032":["高岡郡檮原町","高岡郡津野町"]},"40":{"5030":["うきは市","三井郡大刀洗町","中間市","久留米市","京都郡みやこ町","京都郡苅田町","北九州市八幡東区","北九州市八幡西区","北九州市小倉北区","北九州市小倉南区","北九州市戸畑区","北九州市若松区","北九州市門司区","古賀市","嘉穂郡桂川町","嘉麻市","大野城市","太宰府市","宗像市","宮若市","小郡市","春日市","朝倉市","朝倉郡東峰村","朝倉郡筑前町","田川市","田川郡大任町","田川郡川崎町","田川郡添田町","田川郡福智町","田川郡糸田町","田川郡赤村","田川郡香春町","直方市","福岡市中央区","福岡市南区","福岡市博多区","福岡市城南区","福岡市早良区","福岡市東区","福岡市西区","福津市","筑紫郡那珂川町","筑紫野市","築上郡築上町","糟屋郡久山町","糟屋郡宇美町","糟屋郡志免町","糟屋郡新宮町","糟屋郡篠栗町","糟屋郡粕屋町","糟屋郡須恵町","糸島市","行橋市","豊前市","遠賀郡岡垣町","遠賀郡水巻町","遠賀郡芦屋町","遠賀郡遠賀町","鞍手郡小竹町","鞍手郡鞍手町","飯塚市"],"5031":["京都郡みやこ町","京都郡苅田町","北九州市小倉南区","北九州市門司区","築上郡上毛町","築上郡吉富町","築上郡築上町","行橋市","豊前市"],"5130":["北九州市小倉北区","北九州市若松区","宗像市"],"4930":["うきは市","みやま市","三潴郡大木町","久留米市","八女市","八女郡広川町","大川市","大牟田市","柳川市","筑後市"]},"41":{"4930":["三養基郡みやき町","三養基郡上峰町","伊万里市","佐賀市","唐津市","多久市","嬉野市","小城市","杵島郡大町町","杵島郡江北町","杵島郡白石町","武雄市","神埼市","神埼郡吉野ヶ里町","藤津郡太良町","鳥栖市","鹿島市"],"5030":["三養基郡みやき町","三養基郡上峰町","三養基郡基山町","佐賀市","唐津市","多久市","小城市","神埼市","神埼郡吉野ヶ里町","鳥栖市"],"4929":["伊万里市","唐津市","嬉野市","武雄市","西松浦郡有田町"],"5029":["伊万里市","唐津市","東松浦郡玄海町"]},"42":{"4829":["長崎市"],"4929":["五島市","佐世保市","北松浦郡佐々町","北松浦郡小値賀町","南松浦郡新上五島町","大村市","平戸市","東彼杵郡川棚町","東彼杵郡東彼杵町","東彼杵郡波佐見町","松浦市","西彼杵郡時津町","西彼杵郡長与町","西海市","諫早市","長崎市"],"5029":["佐世保市","壱岐市","平戸市","松浦市"],"4930":["南島原市","大村市","島原市","東彼杵郡東彼杵町","諫早市","雲仙市"],"5129":["対馬市"],"5229":["対馬市"],"4728":["五島市"],"4828":["五島市"],"4928":["五島市","北松浦郡小値賀町","南松浦郡新上五島町"],"4830":["南島原市","雲仙市"]},"43":{"4930":["上益城郡嘉島町","上益城郡山都町","上益城郡御船町","上益城郡甲佐町","上益城郡益城町","合志市","宇土市","宇城市","山鹿市","熊本市中央区","熊本市北区","熊本市南区","熊本市東区","熊本市西区","玉名市","玉名郡南関町","玉名郡和水町","玉名郡玉東町","玉名郡長洲町","荒尾市","菊池市","菊池郡大津町","菊池郡菊陽町","阿蘇市","阿蘇郡南小国町","阿蘇郡南阿蘇村","阿蘇郡小国町","阿蘇郡西原村"],"4830":["上天草市","上益城郡山都町","上益城郡御船町","上益城郡甲佐町","下益城郡美里町","人吉市","八代市","八代郡氷川町","天草市","天草郡苓北町","宇土市","宇城市","水俣市","熊本市南区","球磨郡あさぎり町","球磨郡五木村","球磨郡多良木町","球磨郡山江村","球磨郡水上村","球磨郡湯前町","球磨郡球磨村","球磨郡相良村","球磨郡錦町","葦北郡津奈木町","葦北郡芦北町"],"4831":["上益城郡山都町","八代市","球磨郡多良木町","球磨郡水上村","球磨郡湯前町"],"4931":["上益城郡山都町","阿蘇市","阿蘇郡南小国町","阿蘇郡南阿蘇村","阿蘇郡小国町","阿蘇郡産山村","阿蘇郡高森町"],"4829":["天草市"]},"44":{"4931":["佐伯市","別府市","大分市","宇佐市","日田市","津久見市","玖珠郡九重町","玖珠郡玖珠町","由布市","竹田市","臼杵市","豊後大野市"],"5031":["中津市","別府市","国東市","宇佐市","日田市","東国東郡姫島村","杵築市","玖珠郡玖珠町","豊後高田市","速見郡日出町"],"5030":["中津市","日田市"],"4930":["日田市"],"4932":["佐伯市","津久見市"]},"45":{"4731":["串間市","北諸県郡三股町","宮崎市","小林市","日南市","東諸県郡国富町","東諸県郡綾町","西諸県郡高原町","都城市"],"4831":["児湯郡川南町","児湯郡新富町","児湯郡木城町","児湯郡西米良村","児湯郡都農町","児湯郡高鍋町","宮崎市","小林市","延岡市","日向市","東臼杵郡椎葉村","東臼杵郡美郷町","東臼杵郡諸塚村","東臼杵郡門川町","東諸県郡国富町","東諸県郡綾町","西臼杵郡五ヶ瀬町","西臼杵郡日之影町","西臼杵郡高千穂町","西都市"],"4730":["えびの市","小林市","西諸県郡高原町","都城市"],"4931":["延岡市","西臼杵郡五ヶ瀬町","西臼杵郡日之影町","西臼杵郡高千穂町"],"4830":["えびの市","小林市"]},"46":{"4630":["南さつま市","南九州市","指宿市","枕崎市","肝属郡南大隅町","肝属郡肝付町","肝属郡錦江町","西之表市","鹿児島市","鹿児島郡三島村","鹿屋市"],"4730":["いちき串木野市","伊佐市","出水市","南さつま市","南九州市","垂水市","姶良市","姶良郡湧水町","志布志市","日置市","曽於市","曽於郡大崎町","枕崎市","肝属郡東串良町","肝属郡肝付町","薩摩川内市","薩摩郡さつま町","阿久根市","霧島市","鹿児島市","鹿屋市"],"4830":["伊佐市","出水市","出水郡長島町","姶良郡湧水町","薩摩郡さつま町","阿久根市"],"4530":["熊毛郡中種子町","熊毛郡南種子町","熊毛郡屋久島町","西之表市","鹿児島郡十島村"],"4531":["熊毛郡中種子町","西之表市"],"4631":["肝属郡肝付町","西之表市"],"4729":["南さつま市","薩摩川内市"],"4731":["志布志市","曽於市","曽於郡大崎町","肝属郡東串良町","肝属郡肝付町"],"4629":["南さつま市","鹿児島郡三島村"],"4229":["大島郡喜界町","大島郡大和村","大島郡宇検村","大島郡瀬戸内町","大島郡龍郷町","奄美市"],"4328":["鹿児島郡十島村"],"4329":["鹿児島郡十島村"],"4429":["鹿児島郡十島村"],"4529":["鹿児島郡十島村"],"4129":["大島郡伊仙町","大島郡徳之島町","大島郡瀬戸内町"],"4230":["大島郡喜界町"],"4128":["大島郡伊仙町","大島郡和泊町","大島郡天城町","大島郡徳之島町","大島郡知名町"],"4028":["大島郡与論町","大島郡知名町"]},"47":{"3927":["うるま市","中頭郡中城村","中頭郡北中城村","中頭郡北谷町","中頭郡嘉手納町","中頭郡西原町","中頭郡読谷村","南城市","名護市","国頭郡今帰仁村","国頭郡宜野座村","国頭郡恩納村","国頭郡本部町","国頭郡金武町","宜野湾市","島尻郡与那原町","島尻郡八重瀬町","島尻郡南風原町","島尻郡座間味村","島尻郡渡名喜村","島尻郡渡嘉敷村","島尻郡粟国村","沖縄市","浦添市","糸満市","豊見城市","那覇市"],"3624":["八重山郡竹富町","宮古郡多良間村","石垣市"],"3823":["石垣市"],"3824":["石垣市"],"3928":["うるま市","名護市","国頭郡大宜味村","国頭郡宜野座村","国頭郡東村"],"4027":["名護市","国頭郡今帰仁村","国頭郡伊江村","国頭郡本部町","島尻郡伊平屋村","島尻郡伊是名村"],"4028":["名護市","国頭郡今帰仁村","国頭郡国頭村","国頭郡大宜味村","国頭郡東村","島尻郡伊平屋村"],"3725":["宮古島市"],"3831":["島尻郡北大東村","島尻郡南大東村"],"3631":["島尻郡北大東村"],"3926":["島尻郡久米島町"],"4128":["島尻郡久米島町"],"3724":["宮古郡多良間村"],"3623":["八重山郡与那国町","八重山郡竹富町"],"3622":["八重山郡与那国町"]}};
+
+const meshDataCache = {}; // prefCode -> {mesh4: Set(市区町村名)}
+
+async function getMeshData(prefCode) {
+  if (meshDataCache[prefCode]) return meshDataCache[prefCode];
+  const meshMap = {};
+  const raw = MESH_DATA_EMBEDDED[prefCode];
+  if (raw) {
+    for (const [mesh4, cities] of Object.entries(raw)) {
+      meshMap[mesh4] = new Set(cities);
+    }
+  }
+  meshDataCache[prefCode] = meshMap;
+  return meshMap;
+}
+
+async function getMeshDataForOfficeName(officeName) {
+  let officeCode = null;
+  for (const [code, name] of Object.entries(offices)) {
+    if (name === officeName) { officeCode = code; break; }
+  }
+  if (!officeCode) return {};
+  return await getMeshData(officeCode.slice(0, 2));
+}
+
+function formatMeshInfo(meshMap) {
+  const keys = Object.keys(meshMap);
+  if (keys.length === 0) return "1次メッシュ: 該当データがありません";
+
+  const parts = [];
+  const boundaryUndefinedCodes = [];
+
+  for (const mesh4 of keys.sort()) {
+    const cities = new Set(meshMap[mesh4]);
+    if (cities.has("境界未定地域")) {
+      boundaryUndefinedCodes.push(mesh4);
+      cities.delete("境界未定地域");
+    }
+    if (cities.size > 0) {
+      parts.push(`${mesh4}(${Array.from(cities).sort().join("、")})`);
+    } else if (!boundaryUndefinedCodes.includes(mesh4)) {
+      parts.push(mesh4);
+    }
+  }
+  if (boundaryUndefinedCodes.length > 0) {
+    parts.push(`境界未定地域(${boundaryUndefinedCodes.join("、")})`);
+  }
+  return "1次メッシュ: " + parts.join("、");
+}
+
+let offices = {};   
+let regions = [];   
+let lastFingerprint = null;
+let pollTimer = null;
+ 
+const el = id => document.getElementById(id);
+ 
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem("jma_monitor_settings");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!parsed.threshold) parsed.threshold = 5;
+      if (!parsed.pollMinutes) parsed.pollMinutes = 15;
+      return parsed;
+    }
+  } catch (e) {}
+  return { mode: "all", offices: [], threshold: 5, pollMinutes: 15 };
+}
+function saveSettings(s) {
+  localStorage.setItem("jma_monitor_settings", JSON.stringify(s));
+}
+ 
+async function loadAreaData() {
+  const res = await fetch(AREA_JSON_URL, { cache: "no-store" });
+  if (!res.ok) throw new Error("area.json取得失敗: " + res.status);
+  const data = await res.json();
+  offices = {};
+  Object.entries(data.offices || {}).forEach(([code, v]) => { offices[code] = v.name || code; });
+ 
+  const centers = data.centers || {};
+  const items = Object.entries(centers).map(([code, c]) => {
+    const name = c.name || code;
+    let order = REGION_ORDER_KEYWORDS.length;
+    for (let i = 0; i < REGION_ORDER_KEYWORDS.length; i++) {
+      if (name.includes(REGION_ORDER_KEYWORDS[i])) { order = i; break; }
+    }
+    const officeCodes = (c.children || []).filter(code2 => offices[code2]);
+    return { code, name, order, officeCodes };
+  }).filter(r => r.officeCodes.length > 0);
+ 
+  items.sort((a, b) => a.order - b.order || a.code.localeCompare(b.code));
+  regions = items;
+}
+ 
+function targetOfficeCodes(settings) {
+  if (settings.mode === "custom" && settings.offices && settings.offices.length) {
+    return settings.offices.filter(c => offices[c]);
+  }
+  return Object.keys(offices);
+}
+ 
+function maxLevelFromWarningJson(data) {
+  let maxLevel = 0;
+  function walk(node) {
+    if (Array.isArray(node)) {
+      node.forEach(item => {
+        if (item && typeof item === "object" && "code" in item) {
+          if (item.code && item.status !== "解除") {
+            const lv = CODE_TO_LEVEL[String(item.code)] || 0;
+            if (lv > maxLevel) maxLevel = lv;
+          }
+        }
+        walk(item);
+      });
+      return;
+    }
+    if (!node || typeof node !== "object") return;
+    Object.values(node).forEach(walk);
+  }
+  walk(data);
+  return maxLevel;
+}
+ 
+async function checkOffice(code) {
+  try {
+    const res = await fetch(OFFICE_WARNING_URL(code), { cache: "no-store" });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return maxLevelFromWarningJson(data);
+  } catch (e) {
+    return 0;
+  }
+}
+ 
+function logLine(text, isHit) {
+  const box = el("progress-log");
+  if (box.textContent === "まだ確認していません。") box.textContent = "";
+  const div = document.createElement("div");
+  div.className = "region-line" + (isHit ? " hit" : "");
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+ 
+async function checkAllRegionsProgressive() {
+  el("progress-log").textContent = "";
+  const now = new Date();
+  const settings = loadSettings();
+  const targetCodes = new Set(targetOfficeCodes(settings));
+  const threshold = settings.threshold || 5;
+  logLine(`確認日時: ${now.toLocaleString("ja-JP")}(設定: レベル${threshold}以上で通知)`, false);
+  const allAffected = [];
+ 
+  for (const region of regions) {
+    const codes = region.officeCodes.filter(c => targetCodes.has(c));
+    if (codes.length === 0) continue;
+ 
+    const results = await Promise.all(codes.map(async code => {
+      const level = await checkOffice(code);
+      return level >= threshold ? { name: offices[code], level } : null;
+    }));
+    const affected = results.filter(Boolean);
+    allAffected.push(...affected);
+ 
+    if (affected.length) {
+      logLine(`◆ ${region.name}: ` + affected.map(a => `${a.name}(レベル${a.level})`).join("、"), true);
+    } else {
+      logLine(`◆ ${region.name}: 該当なし`, false);
+    }
+  }
+  logLine("確認完了しました。", false);
+  return allAffected;
+}
+ 
+// ------------------------------------------------------------
+// 地震情報のチェック
+// ------------------------------------------------------------
+async function checkEarthquake() {
+  const res = await fetch(QUAKE_LIST_URL, { cache: "no-store" });
+  if (!res.ok) throw new Error("地震情報一覧の取得失敗: " + res.status);
+  const list = await res.json();
+
+  // 全国最大震度が「5弱」未満のものは、どちらの閾値にも達しないので事前に除外する
+  const candidates = list.filter(item => intensityValue(item.maxi) >= intensityValue("5-"));
+
+  const affectedQuakes = []; // [{prefName, maxInt, hypocenterName, at, eid}]
+  for (const item of candidates.slice(0, 15)) { // 直近の該当候補のみ確認(件数を抑える)
+    if (!item.json) continue;
+    try {
+      const detailRes = await fetch(QUAKE_DETAIL_URL(item.json), { cache: "no-store" });
+      if (!detailRes.ok) continue;
+      const detail = await detailRes.json();
+      const prefs = detail?.Body?.Intensity?.Observation?.Pref;
+      if (!Array.isArray(prefs)) continue;
+
+      for (const pref of prefs) {
+        const threshold = QUAKE_SPECIAL_PREF_CODES.has(pref.Code) ? QUAKE_SPECIAL_THRESHOLD : QUAKE_NORMAL_THRESHOLD;
+        if (intensityValue(pref.MaxInt) >= intensityValue(threshold)) {
+          affectedQuakes.push({
+            prefName: pref.Name,
+            prefCode: pref.Code,
+            maxInt: pref.MaxInt,
+            hypocenterName: item.anm || detail?.Body?.Earthquake?.Hypocenter?.Area?.Name || "震源不明",
+            at: item.at,
+            eid: item.eid || item.json,
+          });
+        }
+      }
+    } catch (e) {
+      continue; // 個別の地震取得失敗は無視して次へ
+    }
+  }
+  return affectedQuakes;
+}
+
+// ------------------------------------------------------------
+// 氾濫(指定河川洪水予報)のチェック
+// ------------------------------------------------------------
+function getTargetPrefPrefixes(settings) {
+  const targetCodes = targetOfficeCodes(settings);
+  return new Set(targetCodes.map(c => c.slice(0, 2)));
+}
+
+async function checkFlood() {
+  const settings = loadSettings();
+  const threshold = settings.threshold || 5;
+  const targetPrefixes = getTargetPrefPrefixes(settings);
+
+  const res = await fetch(FLOOD_XML_URL, { cache: "no-store" });
+  if (!res.ok) throw new Error("氾濫情報の取得失敗: " + res.status);
+  const entries = await res.json();
+
+  const affected = [];
+  for (const entry of entries) {
+    const item = entry.item || {};
+    const title = item.name || "";
+    if (!title || title.includes("解除")) continue; // 解除済みの発表は対象外
+    const m = title.match(/レベル\s*([2-5])/);
+    if (!m) continue;
+    const level = parseInt(m[1], 10);
+    if (level < threshold) continue;
+
+    for (const area of (item.areas || [])) {
+      const areaCode = area.code || "";
+      const prefCode = areaCode.slice(0, 2);
+      if (!targetPrefixes.has(prefCode)) continue;
+      affected.push({
+        prefName: JIS_PREF_NAMES[prefCode] || prefCode,
+        prefCode,
+        level,
+        riverAreaName: area.name || "",
+        title,
+      });
+    }
+  }
+  return affected;
+}
+
+function renderFloodSummary(affectedFloods) {
+  const box = el("flood-summary");
+  box.innerHTML = "";
+  if (!affectedFloods.length) {
+    box.textContent = "現在、該当する氾濫情報はありません。";
+    return;
+  }
+  affectedFloods.forEach(f => {
+    const row = document.createElement("div");
+    row.style.marginBottom = "4px";
+
+    const tag = document.createElement("span");
+    tag.innerHTML = `<strong>${f.prefName}(レベル${f.level}):</strong> ${f.riverAreaName}`;
+    tag.style.cursor = "pointer";
+    tag.style.textDecoration = "underline dotted";
+    tag.addEventListener("click", () => toggleMeshDetail(row, f.prefName, "quake", f.prefCode));
+
+    row.appendChild(tag);
+    box.appendChild(row);
+  });
+}
+
+function showFloodFlash(affectedFloods) {
+  const overlay = el("flash-overlay");
+  const body = el("flash-body");
+  body.innerHTML = affectedFloods
+    .map(f => `・${f.prefName}(レベル${f.level})<br><span style="font-size:13px; font-weight:400; color:#64748b;">${f.riverAreaName}</span>`)
+    .join("<br>") || "・対象エリアあり";
+  overlay.style.display = "flex";
+  el("flash-title").textContent = "氾濫情報(指定河川洪水予報)";
+
+  let toggle = true;
+  clearInterval(blinkTimer);
+  const blinkWrapper3 = el("flash-blink-wrapper");
+  blinkTimer = setInterval(() => {
+    blinkWrapper3.style.background = toggle ? "black" : "red";
+    toggle = !toggle;
+  }, 400);
+
+  if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500, 200, 1000]);
+  playBeep();
+
+  sendAppNotification(
+    "気象庁 氾濫情報",
+    affectedFloods.map(f => `${f.prefName}(レベル${f.level})`).join("、"),
+    "jma-flood-alert"
+  );
+}
+
+async function runFloodCheck() {
+  try {
+    const affectedFloods = await checkFlood();
+    renderFloodSummary(affectedFloods);
+    const fingerprint = affectedFloods.map(f => `${f.prefCode}:${f.riverAreaName}:${f.level}`).sort().join(",");
+    if (affectedFloods.length && fingerprint !== lastFloodFingerprint) {
+      showFloodFlash(affectedFloods);
+    }
+    lastFloodFingerprint = fingerprint;
+  } catch (e) {
+    el("flood-summary").textContent = "氾濫情報の取得に失敗しました: " + e.message;
+  }
+}
+
+function renderEarthquakeSummary(affectedQuakes) {
+  const box = el("earthquake-summary");
+  box.innerHTML = "";
+  if (!affectedQuakes.length) {
+    box.textContent = "現在、該当する地震情報はありません。";
+    return;
+  }
+  affectedQuakes.forEach(q => {
+    const row = document.createElement("div");
+    row.style.marginBottom = "4px";
+
+    const tag = document.createElement("span");
+    tag.innerHTML = `<strong>${q.prefName}(震度${q.maxInt}):</strong> ${q.hypocenterName}(${q.at ? q.at.replace("T", " ").slice(0, 16) : ""})`;
+    tag.style.cursor = "pointer";
+    tag.style.textDecoration = "underline dotted";
+    tag.addEventListener("click", () => toggleMeshDetail(row, q.prefName, "quake", q.prefCode));
+
+    row.appendChild(tag);
+    box.appendChild(row);
+  });
+}
+
+// ------------------------------------------------------------
+// 1次メッシュ情報のタップ表示(該当エリア名をタップすると下に展開表示)
+// ------------------------------------------------------------
+const meshDetailCache = {}; // key: "weather:名前" or "quake:名前" -> 表示用文字列
+
+async function toggleMeshDetail(rowEl, name, type, prefCode) {
+  const existing = rowEl.querySelector(".mesh-detail-row");
+  if (existing) {
+    existing.remove();
+    return;
+  }
+  const detailRow = document.createElement("div");
+  detailRow.className = "mesh-detail-row";
+  detailRow.style.cssText = "font-size:11px; color:#475569; margin:2px 0 2px 4px;";
+  detailRow.textContent = "1次メッシュを取得中...";
+  rowEl.appendChild(detailRow);
+
+  const cacheKey = `${type}:${name}`;
+  if (meshDetailCache[cacheKey]) {
+    detailRow.textContent = meshDetailCache[cacheKey];
+    return;
+  }
+  try {
+    const meshMap = type === "weather"
+      ? await getMeshDataForOfficeName(name)
+      : await getMeshData(prefCode);
+    const text = formatMeshInfo(meshMap);
+    meshDetailCache[cacheKey] = text;
+    detailRow.textContent = text;
+  } catch (e) {
+    detailRow.textContent = "1次メッシュの取得に失敗しました。";
+  }
+}
+
+function showQuakeFlash(affectedQuakes) {
+  const overlay = el("flash-overlay");
+  const body = el("flash-body");
+  body.innerHTML = affectedQuakes
+    .map(q => `・${q.prefName}(震度${q.maxInt})<br><span style="font-size:13px; font-weight:400; color:#64748b;">${q.hypocenterName}</span>`)
+    .join("<br>") || "・対象エリアあり";
+  overlay.style.display = "flex";
+  el("flash-title").textContent = "地震情報";
+
+  let toggle = true;
+  clearInterval(blinkTimer);
+  const blinkWrapper = el("flash-blink-wrapper");
+  blinkTimer = setInterval(() => {
+    blinkWrapper.style.background = toggle ? "black" : "red";
+    toggle = !toggle;
+  }, 400);
+
+  if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500, 200, 1000]);
+  playBeep();
+
+  sendAppNotification(
+    "気象庁 地震情報",
+    affectedQuakes.map(q => `${q.prefName}(震度${q.maxInt})`).join("、"),
+    "jma-quake-alert"
+  );
+}
+
+async function runEarthquakeCheck() {
+  try {
+    const affectedQuakes = await checkEarthquake();
+    renderEarthquakeSummary(affectedQuakes);
+    const fingerprint = affectedQuakes.map(q => `${q.eid}:${q.prefName}:${q.maxInt}`).sort().join(",");
+    if (affectedQuakes.length && fingerprint !== lastQuakeFingerprint) {
+      showQuakeFlash(affectedQuakes);
+    }
+    lastQuakeFingerprint = fingerprint;
+  } catch (e) {
+    el("earthquake-summary").textContent = "地震情報の取得に失敗しました: " + e.message;
+  }
+}
+
+function updateHeaderBadge(affected) {
+  const badge = el("header-status");
+  badge.classList.remove("safe", "level4", "level5");
+  if (!affected.length) {
+    badge.classList.add("safe");
+    badge.textContent = "異常なし";
+    return;
+  }
+  const maxLv = Math.max(...affected.map(a => a.level));
+  badge.classList.add(maxLv >= 5 ? "level5" : "level4");
+  badge.textContent = `レベル${maxLv} 発表中`;
+}
+ 
+function renderAffectedSummary(affected) {
+  const box = el("affected-summary");
+  box.innerHTML = "";
+  if (!affected.length) {
+    box.textContent = "現在、設定した警戒レベル以上の対象エリアはありません。";
+    return;
+  }
+  const byLevel = {};
+  affected.forEach(a => {
+    if (!byLevel[a.level]) byLevel[a.level] = [];
+    byLevel[a.level].push(a.name);
+  });
+  const levels = Object.keys(byLevel).map(Number).sort((a, b) => b - a);
+
+  levels.forEach(lv => {
+    const levelDiv = document.createElement("div");
+    levelDiv.style.marginBottom = "6px";
+    const label = document.createElement("strong");
+    label.textContent = `レベル${lv}: `;
+    levelDiv.appendChild(label);
+
+    byLevel[lv].forEach((name, idx) => {
+      const row = document.createElement("span");
+      row.style.cursor = "pointer";
+      row.style.textDecoration = "underline dotted";
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = name + (idx < byLevel[lv].length - 1 ? "、" : "");
+      row.appendChild(nameSpan);
+      row.addEventListener("click", () => toggleMeshDetail(row, name, "weather"));
+      levelDiv.appendChild(row);
+    });
+
+    box.appendChild(levelDiv);
+  });
+}
+ 
+let blinkTimer = null;
+ 
+function showFlash(affected) {
+  const overlay = el("flash-overlay");
+  const body = el("flash-body");
+  body.innerHTML = affected.map(a => `・${a.name}(レベル${a.level})`).join("<br>") || "・対象エリアあり";
+  overlay.style.display = "flex";
+ 
+  const thresholdShown = affected.length ? Math.min(...affected.map(a => a.level)) : (loadSettings().threshold || 5);
+  el("flash-title").textContent = `警戒レベル${thresholdShown}以上 発表`;
+ 
+  let toggle = true;
+  clearInterval(blinkTimer);
+  const blinkWrapper2 = el("flash-blink-wrapper");
+  blinkTimer = setInterval(() => {
+    blinkWrapper2.style.background = toggle ? "black" : "red";
+    toggle = !toggle;
+  }, 400);
+ 
+  if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500, 200, 1000]);
+  playBeep();
+
+  sendAppNotification(
+    `気象庁 警戒レベル${thresholdShown}以上`,
+    affected.map(a => `${a.name}(レベル${a.level})`).join("、"),
+    "jma-level-alert"
+  );
+}
+ 
+function closeFlash() {
+  clearInterval(blinkTimer);
+  el("flash-overlay").style.display = "none";
+}
+ 
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let t = ctx.currentTime;
+    // 鋭く聞き取りやすい矩形波のアラート音(4回連続)
+    const freqs = [1200, 800, 1200, 800];
+    freqs.forEach((freq) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.5, t);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.2);
+      t += 0.3;
+    });
+  } catch (e) {}
+}
+ 
+el("flash-close").addEventListener("click", closeFlash);
+ 
+function updateCurrentThresholdDisplay(threshold) {
+  const text = `現在の設定: レベル${threshold}以上で通知`;
+  const w = el("threshold-display-weather");
+  if (w) w.textContent = text;
+  const f = el("threshold-display-flood");
+  if (f) f.textContent = text;
+}
+
+function renderSettingsUI() {
+  const settings = loadSettings();
+  el("mode-all").checked = settings.mode !== "custom";
+  el("mode-custom").checked = settings.mode === "custom";
+ 
+  const thresholdRadio = document.querySelector(`input[name="threshold"][value="${settings.threshold || 5}"]`);
+  if (thresholdRadio) thresholdRadio.checked = true;
+  updateCurrentThresholdDisplay(settings.threshold || 5);
+
+  const intervalRadio = document.querySelector(`input[name="interval"][value="${settings.pollMinutes || 15}"]`);
+  if (intervalRadio) intervalRadio.checked = true;
+  POLL_INTERVAL_MS = (settings.pollMinutes || 15) * 60 * 1000;
+ 
+  const currentCodes = new Set(settings.offices || []);
+  const listEl = el("region-list");
+  listEl.innerHTML = "";
+ 
+  regions.forEach(region => {
+    const block = document.createElement("div");
+    block.className = "region-block";
+ 
+    const header = document.createElement("div");
+    header.className = "region-header";
+    const masterCb = document.createElement("input");
+    masterCb.type = "checkbox";
+    masterCb.checked = region.officeCodes.every(c => currentCodes.has(c));
+    const masterLabel = document.createElement("span");
+    masterLabel.textContent = region.name + "(まとめて選択/解除)";
+    header.appendChild(masterCb);
+    header.appendChild(masterLabel);
+    block.appendChild(header);
+ 
+    const officeCbs = [];
+    region.officeCodes.forEach(code => {
+      const row = document.createElement("label");
+      row.className = "office-row";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.dataset.code = code;
+      cb.checked = currentCodes.has(code);
+      officeCbs.push(cb);
+      row.appendChild(cb);
+      row.appendChild(document.createTextNode(offices[code]));
+      block.appendChild(row);
+    });
+ 
+    masterCb.addEventListener("change", () => {
+      officeCbs.forEach(cb => { cb.checked = masterCb.checked; });
+    });
+ 
+    listEl.appendChild(block);
+  });
+ 
+  applyModeDisabled();
+}
+ 
+function applyModeDisabled() {
+  const isAll = el("mode-all").checked;
+  document.querySelectorAll("#region-list input[type=checkbox]").forEach(cb => {
+    cb.disabled = isAll;
+  });
+}
+ 
+el("mode-all").addEventListener("change", applyModeDisabled);
+el("mode-custom").addEventListener("change", applyModeDisabled);
+ 
+el("btn-toggle-settings").addEventListener("click", () => {
+  el("settings-body").classList.toggle("hidden");
+});
+ 
+el("btn-toggle-log").addEventListener("click", () => {
+  el("log-body").classList.toggle("hidden");
+});
+
+el("btn-toggle-notes").addEventListener("click", () => {
+  el("notes-body").classList.toggle("hidden");
+});
+ 
+el("btn-save-settings").addEventListener("click", async () => {
+  const mode = el("mode-all").checked ? "all" : "custom";
+  const selected = Array.from(document.querySelectorAll("#region-list input[type=checkbox][data-code]"))
+    .filter(cb => cb.checked)
+    .map(cb => cb.dataset.code);
+  const thresholdChecked = document.querySelector('input[name="threshold"]:checked');
+  const threshold = thresholdChecked ? parseInt(thresholdChecked.value, 10) : 5;
+  const intervalChecked = document.querySelector('input[name="interval"]:checked');
+  const pollMinutes = intervalChecked ? parseInt(intervalChecked.value, 10) : 15;
+
+  saveSettings({ mode, offices: selected, threshold, pollMinutes });
+  updateCurrentThresholdDisplay(threshold);
+  lastFingerprint = null;
+  POLL_INTERVAL_MS = pollMinutes * 60 * 1000;
+
+  // 監視中に間隔を変更した場合は、タイマーを新しい間隔で張り直す
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(runCheckAndMaybeFlash, POLL_INTERVAL_MS);
+    el("btn-start").textContent = `監視中(${pollMinutes}分ごとに自動確認)`;
+  }
+
+  // バックグラウンド同期側の設定・実行間隔も合わせて更新する
+  await syncSettingsToIDB();
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if ("periodicSync" in reg) {
+        await reg.periodicSync.register("jma-check", { minInterval: POLL_INTERVAL_MS });
+      }
+    }
+  } catch (e) {
+    console.error("定期バックグラウンド同期の間隔更新に失敗:", e);
+  }
+
+  alert("監視エリア設定を保存しました。");
+  el("settings-body").classList.add("hidden");
+});
+ 
+async function runCheckAndMaybeFlash() {
+  const affected = await checkAllRegionsProgressive();
+  updateHeaderBadge(affected);
+  renderAffectedSummary(affected);
+  const fingerprint = affected.map(a => `${a.name}:${a.level}`).sort().join(",");
+  if (affected.length && fingerprint !== lastFingerprint) {
+    showFlash(affected);
+  }
+  lastFingerprint = fingerprint;
+
+  await runEarthquakeCheck();
+  await runFloodCheck();
+}
+ 
+el("btn-check-now").addEventListener("click", () => {
+  runCheckAndMaybeFlash();
+});
+ 
+el("btn-toggle-android-guide").addEventListener("click", () => {
+  el("android-guide-body").classList.toggle("hidden");
+});
+
+// ------------------------------------------------------------
+// 画面スリープ防止(Screen Wake Lock API)
+// ------------------------------------------------------------
+let wakeLockSentinel = null;
+
+async function requestWakeLock() {
+  const cb = el("cb-wake-lock");
+  if (!cb || !cb.checked) return;
+  if (!("wakeLock" in navigator)) {
+    updateWakeLockUI();
+    return;
+  }
+  try {
+    if (!wakeLockSentinel) {
+      wakeLockSentinel = await navigator.wakeLock.request("screen");
+      wakeLockSentinel.addEventListener("release", () => {
+        wakeLockSentinel = null;
+        updateWakeLockUI();
+      });
+      updateWakeLockUI();
+    }
+  } catch (e) {
+    console.warn("Wake Lock取得失敗:", e);
+    wakeLockSentinel = null;
+    updateWakeLockUI();
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLockSentinel) {
+    try {
+      await wakeLockSentinel.release();
+    } catch (e) {}
+    wakeLockSentinel = null;
+    updateWakeLockUI();
+  }
+}
+
+function updateWakeLockUI() {
+  const status = el("wake-lock-status");
+  if (!status) return;
+  if (!("wakeLock" in navigator)) {
+    status.textContent = "このブラウザは画面スリープ防止(Wake Lock API)に対応していません。";
+    return;
+  }
+  if (wakeLockSentinel) {
+    status.innerHTML = "<span style='color:#16a34a; font-weight:bold;'>● 画面スリープ防止が有効です(画面は自動消灯しません)</span>";
+  } else {
+    status.textContent = "監視開始時に画面の自動消灯を防止し、端末がスリープに入るのを防ぎます。";
+  }
+}
+
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && pollTimer) {
+    const cb = el("cb-wake-lock");
+    if (cb && cb.checked) {
+      await requestWakeLock();
+    }
+  }
+});
+
+const cbWakeLock = el("cb-wake-lock");
+if (cbWakeLock) {
+  cbWakeLock.addEventListener("change", async (e) => {
+    if (e.target.checked) {
+      if (pollTimer) await requestWakeLock();
+    } else {
+      await releaseWakeLock();
+    }
+  });
+}
+
+const cbKeepAlive = el("cb-keep-alive");
+if (cbKeepAlive) {
+  cbKeepAlive.addEventListener("change", async (e) => {
+    if (e.target.checked) {
+      if (pollTimer) await startKeepAliveAudio();
+    } else {
+      stopKeepAliveAudio();
+    }
+  });
+}
+
+el("btn-start").addEventListener("click", async () => {
+  if (Notification && Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+  clearInterval(pollTimer);
+  await requestWakeLock();
+  await startKeepAliveAudio();
+  runCheckAndMaybeFlash();
+  pollTimer = setInterval(runCheckAndMaybeFlash, POLL_INTERVAL_MS);
+  const minutes = Math.round(POLL_INTERVAL_MS / 60000);
+  el("btn-start").textContent = `監視中(${minutes}分ごとに自動確認)`;
+  el("btn-start").disabled = true;
+});
+ 
+// ------------------------------------------------------------
+// バックグラウンド同期(PWA + Service Worker + Periodic Background Sync)
+// ------------------------------------------------------------
+// ページとService Workerの両方から同じ設定・重複防止情報を読めるよう、
+// 簡易的なIndexedDBのキーバリューストアを使う(localStorageはページ専用で
+// Service Workerからは読めないため)。
+const IDB_NAME = "jma_monitor_db";
+const IDB_STORE = "kv";
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(IDB_STORE)) {
+        req.result.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, value) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function syncSettingsToIDB() {
+  try {
+    await idbSet("settings", loadSettings());
+  } catch (e) {
+    console.error("設定のIndexedDB書き込みに失敗:", e);
+  }
+}
+
+async function setupBackgroundSync() {
+  const statusEl = el("bgsync-status");
+  if (!("serviceWorker" in navigator)) {
+    if (statusEl) statusEl.textContent = "このブラウザはService Workerに対応していません。";
+    return;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.register("sw.js");
+    await syncSettingsToIDB();
+
+    if ("periodicSync" in reg) {
+      try {
+        const status = await navigator.permissions.query({ name: "periodic-background-sync" });
+        if (status.state === "granted") {
+          const settings = loadSettings();
+          await reg.periodicSync.register("jma-check", {
+            minInterval: (settings.pollMinutes || 15) * 60 * 1000,
+          });
+          if (statusEl) statusEl.textContent = "定期バックグラウンド同期: 有効(ただし実行間隔は保証されません)";
+        } else {
+          if (statusEl) statusEl.textContent = "定期バックグラウンド同期: 権限が許可されていません(この端末では自動では有効化できません)。";
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "定期バックグラウンド同期: 利用できません(この端末・ブラウザでは非対応の可能性があります)。";
+      }
+    } else {
+      if (statusEl) statusEl.textContent = "定期バックグラウンド同期: このブラウザは非対応です(iPhoneのSafari等)。";
+    }
+  } catch (e) {
+    console.error("Service Workerの登録に失敗:", e);
+    if (statusEl) statusEl.textContent = "Service Workerの登録に失敗しました: " + e.message;
+  }
+}
+
+el("btn-test-bgsync").addEventListener("click", async () => {
+  await syncSettingsToIDB();
+  if (!("serviceWorker" in navigator)) {
+    alert("このブラウザはService Workerに対応していません。");
+    return;
+  }
+  try {
+    // controller ではなく ready を使うことで、ページ初回読み込み直後などで
+    // まだ「制御下」になっていないタイミングでも、準備が整い次第テストできる
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 8000)),
+    ]);
+    if (reg && reg.active) {
+      reg.active.postMessage({ type: "RUN_CHECK_NOW" });
+      alert("バックグラウンド同期のテストを実行しました。数秒後に通知が来るか確認してください(該当エリアが無い場合は通知は出ません)。");
+    } else {
+      alert("Service Workerがまだ有効化されていません。少し待ってから、もう一度お試しください。");
+    }
+  } catch (e) {
+    alert("Service Workerの準備に時間がかかっています。少し待ってから、もう一度お試しください。");
+  }
+});
+
+(async function init() {
+  try {
+    await loadAreaData();
+    renderSettingsUI();
+  } catch (e) {
+    logLine("エリア一覧の取得に失敗しました: " + e.message, true);
+  }
+  setupBackgroundSync();
+})();
+</script>
+ 
+</body>
+</html>
