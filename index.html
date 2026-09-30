@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>防災レベル発令通知(全ページマニュアル埋め込み版)</title>
-<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22%E9%98%B2%E7%81%BD%E3%83%AC%E3%83%99%E3%83%AB%E7%99%BA%E4%BB%A4%E9%80%9A%E7%9F%A5%22%2C%20%22short_name%22%3A%20%22%E9%98%B2%E7%81%BD%E9%80%9A%E7%9F%A5%22%2C%20%22start_url%22%3A%20%22./bousai_level_notify_html.html%22%2C%20%22scope%22%3A%20%22./%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%23f1f5f9%22%2C%20%22theme_color%22%3A%20%22%230f172a%22%2C%20%22lang%22%3A%20%22ja%22%2C%20%22icons%22%3A%20%5B%5D%7D">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22%E9%98%B2%E7%81%BD%E3%83%AC%E3%83%99%E3%83%AB%E7%99%BA%E4%BB%A4%E9%80%9A%E7%9F%A5%22%2C%20%22short_name%22%3A%20%22%E9%98%B2%E7%81%BD%E9%80%9A%E7%9F%A5%22%2C%20%22start_url%22%3A%20%22./index.html%22%2C%20%22scope%22%3A%20%22./%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%23f1f5f9%22%2C%20%22theme_color%22%3A%20%22%230f172a%22%2C%20%22lang%22%3A%20%22ja%22%2C%20%22icons%22%3A%20%5B%5D%7D">
 <style>
   * { box-sizing: border-box; }
   body {
@@ -315,7 +315,7 @@ async function sendAppNotification(title, body, tag) {
     vibrate: [500, 200, 500, 200, 500, 200, 1000],
     requireInteraction: true, // ユーザーが操作するまで通知を維持
     renotify: true,           // 同一カテゴリ更新時も再度振動・音を鳴らす
-    data: { url: "./bousai_level_notify_html.html" }
+    data: { url: "./index.html" }
   };
   try {
     if ("serviceWorker" in navigator) {

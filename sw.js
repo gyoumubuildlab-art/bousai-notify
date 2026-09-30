@@ -263,7 +263,7 @@ async function checkFloodOnce(offices, settings) {
 
 
 
-const CACHE_NAME = "bousai-notify-cache-v2";
+const CACHE_NAME = "bousai-notify-cache-v3";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -334,7 +334,7 @@ async function notifyIfSupported(title, body, tag) {
       requireInteraction: true,
       // 同一カテゴリの更新でも再度バイブ・音を鳴らす
       renotify: true,
-      data: { url: "./bousai_level_notify_html.html" }
+      data: { url: "./index.html" }
     });
   } catch (e) {
     console.error("通知の表示に失敗しました:", e);
@@ -344,7 +344,7 @@ async function notifyIfSupported(title, body, tag) {
 // 通知タップ時にアプリ画面にフォーカスまたは新規オープン
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || "./bousai_level_notify_html.html";
+  const targetUrl = event.notification.data?.url || "./index.html";
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
